@@ -116,3 +116,49 @@ java虚拟机中内存分配以较大的“块”为单位。如果对象较大�
 ##### 策略设计
 
 创建一个能够根据所传递的参数对象不同而具有不同行为的方法。这类方法包含所要执行的算法中固定不变的部分，而“策略”包含变化的部分。策略就是要传递进去的参数对象，他包含要执行的代码。
+
+## 内部类
+
+##### 创建内部类对象
+
+从外部类的非静态方法之外的任意位置创建某个**内部类**的对象：
+
+1)OuterClassName.INnerClassName
+
+2)使用new语法
+
+```java
+public class DotNew(){
+    public class Inner{}
+    public static void main(String[] args){
+        DotNew dn = new DotNew();
+        DotNew.Inner dbi = dn.new Inner();
+    }
+}
+```
+
+生成对**外部类对象**的引用，可以使用外部类的名字后面紧跟圆点和this
+
+```java
+public class DotThis{
+    void f(){
+        System.out.printlin("DotThis.f()");
+    }
+    public class Inner{
+    public DotThis outer(){
+        return DotThis.this;
+    	}
+    }
+    public Inner inner(){
+        return new Inner();
+    }
+    public static void main(String[] args){
+        DotThis dt = new DotThis();
+        DotThis.Inner dt1 = dt.inner();
+        dt1.outer.f();
+    }
+}
+//output:DotThis.f()
+
+```
+
