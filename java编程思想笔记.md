@@ -162,3 +162,30 @@ public class DotThis{
 
 ```
 
+#### 嵌套类
+
+如果不需要内部类对象与其外围类对象之间有联系，那么可以将内部声明为static：
+
+1）要创建嵌套类的对象， 并不需要其外围类的对象
+
+2）不能从嵌套类的对象中访问非静态的外围类对象
+
+##### 接口内部的类
+
+如果想要创建某些公共代码，使得他卖的可以被某个接口的所有不同实现所共用，那么可以使用接口内部的嵌套类
+
+```java
+public interface ClassTnterface{
+    void howdy();
+    class Test implements classInterface{
+        public void howdy(){
+            sout("hoddy");
+        }
+        public static void main(String[] args){
+            new Test().howdy();
+        }
+    }
+}
+//Output:hoddy
+```
+
