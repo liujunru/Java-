@@ -8,7 +8,9 @@
 
 #### 向上转型：
 
-将导出类看作是他的基类的过程![image-20220419164405807](C:\Users\123\AppData\Roaming\Typora\typora-user-images\image-20220419164405807.png)
+将导出类看作是他的基类的过程
+
+![image-20220424213722943](https://gitee.com/liujunrull/image-blob/raw/master/202204242137997.png)
 
 #### 单根继承结构
 
@@ -189,3 +191,22 @@ public interface ClassTnterface{
 //Output:hoddy
 ```
 
+#### 持有对象
+
+HashSet最快的获取元素的方式，TreeSet按照比较结果的升序保存对象，LinkedHashSet按照被添加的顺序保存对象。
+
+HashMap提供了最快的查找技术，TreeMap按照比较结果的升序保存键，LinkedHashMap按照插入顺序保存键，同时还保留了HashMap的查询速度。
+
+##### ListIteraror
+
+Iterator的子类型。可以双向移动，可以产生相对于迭代器在列表中指向的当前位置的前一个和后一个元素的索引，并且可以用set()替换他访问过的最后一个元素。可以通过调用listIterator()方法产生一个指向List开始处的ListIterator，并且可以通过调用listIterator(n)方法创建一个一开始就指向列表索引为n的元素处的ListIterator
+
+##### LinkedList
+
+getFirst() /element():返回列表的头（第一个元素），并不移除他，list为空报错。
+
+peek() list为空时返回null
+
+removeFirst() /remove():移除并返回列表的头，list为空报错
+
+poll()list为空时返回null

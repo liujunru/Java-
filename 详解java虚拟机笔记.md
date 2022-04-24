@@ -54,3 +54,7 @@ java指令是根据**栈**来设计的，优点是跨平台性、指令集小；
 ##### 虚拟机的退出
 
 除了程序正常运行或者出现错误导致的正常退出，还可以调用Runtime类或者System类的exit方法，或者Runtime类的halt方法。
+
+### 类加载子系统
+
+![image-20220424225317436](https://gitee.com/liujunrull/image-blob/raw/master/202204242253562.png)
