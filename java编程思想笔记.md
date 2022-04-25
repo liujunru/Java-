@@ -210,3 +210,11 @@ peek() list为空时返回null
 removeFirst() /remove():移除并返回列表的头，list为空报错
 
 poll()list为空时返回null
+
+#### Queue
+
+LinkedList提供了方法以支持队列的行为，并且他实现了Queue接口，因此LinkedList 可以用作Queue的一种是实现。
+
+##### PriorityQueue
+
+优先级队列。调用offer()方法来插入一个对象时，这个对象会在队列中被排序。默认的排序将使用对象在队列中的自然顺序，但是你可以通过提供自己的Comparator来修改这个顺序。
