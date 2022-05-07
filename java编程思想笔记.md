@@ -218,3 +218,55 @@ LinkedList提供了方法以支持队列的行为，并且他实现了Queue接�
 ##### PriorityQueue
 
 优先级队列。调用offer()方法来插入一个对象时，这个对象会在队列中被排序。默认的排序将使用对象在队列中的自然顺序，但是你可以通过提供自己的Comparator来修改这个顺序。
+
+### 字符串
+
+##### stringBuilder循环
+
+```java
+StringBUilder result = new StringBUilder("[");
+for(int i= 0; i < 25; i++){
+    result.append(rand.nexTnt(100));
+    result.append(",");
+}
+result.delete(result.length() - 1,result.length());
+result.append("]");
+sout(result);
+//[56,33,45,67,78,9,...4,56,3,78,89]
+```
+
+### 类型信息
+
+#### Class对象
+
+Class.forName("全限定名"):创建class引用
+
+Class getName:产生全限定的的类名
+
+Class getSImpleName():产生不含包名的类名
+
+Class getCanoincalName()：产生全限定的类名
+
+Class.newInstance():创建虚拟构造器
+
+#### 动态代理
+
+通过调用静态方法Proxy.newProxyInstance()可以创建动态代理，这个方法需要得到一个类加载器，一个你希望该代理实现的接口列表，以及InvocationHandler接口的一个实现。
+
+invoke()方法传递进来了代理对象，以防你需要区分请求的来源。在invoke()内部，在代理上调用方法时需要格外小心，因为对接口的调用将被重定向为对代理的调用。
+
+通常，你会执行被代理的操作，然后使用Method.invoke()将请求转发给被代理对象，并传入必须的参数。
+
+```java
+public static void main(String[] args){
+    SomeMethods proxy = (SomeMethods)Proxy.newProxyIntance(SomeMEthods.class.getClassLoader(),
+                                                          new Class[]{SomeMethods.class},
+                                                           new MethodSeletor(new Implementation()));
+}
+```
+
+### 泛型
+
+##### extends关键字
+
+边界<T extends HasF>声明T必须具有类型HasF或者从HasF导出的类型
