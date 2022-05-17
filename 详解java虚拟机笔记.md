@@ -338,4 +338,31 @@ public class SlotTest{
 3. invokevirtrual:调用所有虚方法（除final修饰）
 4. Invokeinterface:调用接口方法
 5. invokedynamic:动态解析出需要调用的方法，然后执行
+#### Arrays的实用功能
+System.arraycopy(),用它复制数组要比for循环快。
 
+如果是复制对象数组，则只是复制对象的引用，成为浅复制。
+
+不会执行自动包装和自动拆包，两个数组必须有相同的确切类型
+
+
+**程序设计的基本目标**
+
+将保持不变的事物和发生改变的事物相分离。可以使用策略模式，将会发生改变的代码封装成单独的类（策略对象），可以将策略对象传递给总是相同的代码。例如，用不同的对象来表示不同的比较方式，然后将他们传递给相同的排序代码
+#### lis实用方法
+* indexOfSubList(List source,List target):返回target在source中第一次出现的位置，找不到返回-1
+* lastOfSubList(List source,List target)：返回最后一次出现的位置
+* rotate(List,int distance):所有元素向后移动distance个位置，末尾的元素循环到前面来
+* swap(List,int i,int j):交换list中位置i与位置j的元素。通常比自己写的代码快
+* fill(List<? super T>,T x):用对象x替换list中所有元素
+* frequency(Collection,Object x):返回Collection中等于x的元素个数
+
+##### 设置Collection或Map为不可修改
+```java
+List<String> a = Collections.unmodifiableList(new ArrayList<String> data);
+```
+使用场景：将容器设为只读前，填入有意义的数据，装在数据后，使用“不可修改的”方法返回的引用替换原来的引用，这样就不用担心无意中修改了只读的内容。另一方面，此方法允许你保留一份可修改的容器，作为类的private成员，然后通过某个方法调用返回对该容器的“只读”的引用。这样一来，只有你可以修改容器的内容，而别人只能读取。
+##### Collection或Map的自有同步控制
+```java
+Collection<String> c = Collections,synchronizedList(new ArrayList<String> data);
+```
