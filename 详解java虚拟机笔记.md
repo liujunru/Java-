@@ -366,3 +366,21 @@ List<String> a = Collections.unmodifiableList(new ArrayList<String> data);
 ```java
 Collection<String> c = Collections,synchronizedList(new ArrayList<String> data);
 ```
+### IO系统
+任何自Inputstream或Reader派生而来的类都含有名为read()的基本方法，用于读取单个字节或者字节数组。同样，任何自OutputStream或Writer派生而来的类都含有名为write()的基本方法，用于写单个字节或者字节数组。但是我们通常不会用到这些方法，他们之所以存在是因为别的类可以使用他们，以便提供更有用的接口。因此，我们很少使用单一的类来创建流对象，而是通过叠合多个对象来提供所期望的功能（这是装饰器设计模式）
+#### 标准IO重定向
+```java
+PrintStream console = System.out;
+BufferedInputStream in = new BufferedInputStream(new FileINputStream("readrectiong.java"));
+PrintStream out = new PrintStream(new BUfferedOutputStream(new FileOutputStream("test.out")));
+System.setIn(in);
+System.setOut(out);
+System.err(out);
+BUfferedReader br = new BufferedReader(new InputStreamReader(System.in));
+String s;
+while((s = br.readLine()) != null)
+sout(s);
+out.close();
+System.setOut(console);
+```
+这个程序将标准输入附接到文件上，并将标准输出和标准错误重定向到另一个文件。注意，他在程序开头处存储了队最初的System.out对象的引用，并且在结尾处将系统恢复到了该对象上。
