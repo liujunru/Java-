@@ -249,6 +249,21 @@ zset底层使用了两个数据结构。
 
 ![跳表查找51](https://gitee.com/liujunrull/image-blob/raw/master/202206011607606.png)
 
+### 4. redis_jedis测试
+
+#### 4.1 需要的jar包
+
+```java
+<dependency>
+         <groupId>redis.clients</groupId>
+         <artifactId>jedis</artifactId>
+         <version>3.2.0</version>
+     </dependency>
+```
+
+
+
+
 
 
 
