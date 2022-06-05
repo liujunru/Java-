@@ -261,6 +261,561 @@ zset底层使用了两个数据结构。
      </dependency>
 ```
 
+#### 4.2 测试
+
+```
+    public static void main(String[] args) {
+        //创建Jedis对象,param1要访问的redis服务的主机地址，param2端口号
+        Jedis jedis = new Jedis("192.168.53.10",6379);
+        //测试
+        String ping = jedis.ping();
+        System.out.println(ping);
+
+
+    }
+```
+
+connect time out(连接超时)：需要打开防火墙或者6379端口
+
+```
+1)systemctl status firewall 查看防火墙状态 active是否为running,若是
+systemctl stop firewall 关闭防火墙
+firewall-cmd --reload 重启防火墙
+
+2)firewall-cmd --query-port=6379/tcp 查看6379端口号是否打开
+firewall-cmd --query-port=6379/tcp 打开6379端口号
+```
+
+命令行有的指令jedis都有对应方法
+
+### 5、springboot整合redis
+
+#### 5.1 依赖
+
+```
+    <!--redis-->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-redis</artifactId>
+        </dependency>
+        <!--spring2.X集成redis所需common-pool2-->
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-pool2</artifactId>
+            <version>2.6.0</version>
+        </dependency>
+```
+
+#### 5.2 配置文件
+
+```
+#redis服务器地址
+spring.redis.host=192.168.53.10
+#redis服务器连接端口
+spring.redis.port=6379
+#redis数据库索引（默认为0）
+spring.redis.database=0
+#连接超时时间（毫秒）
+spring.redis.timeout=1800000
+#连接池最大连接数（负值表示没有限制）
+spring.redis.lettuce.pool.max-active=20
+#最大阻塞等待时间（负数表示没限制）
+spring.redis.lettuce.pool.max-wait=-1
+#连接池中的最大空闲连接
+spring.redis.lettuce.pool.max-idle=5
+#连接池中的最小空闲连接
+spring.redis.lettuce.pool.min-idle=0
+```
+
+#### 5.3 配置类
+
+```
+package com.atguigu.config;
+
+import com.fasterxml.jackson.annotation.JsonAutoDetect;
+import com.fasterxml.jackson.annotation.PropertyAccessor;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.jsontype.impl.LaissezFaireSubTypeValidator;
+import org.springframework.cache.CacheManager;
+import org.springframework.cache.annotation.CachingConfigurerSupport;
+import org.springframework.cache.annotation.EnableCaching;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.data.redis.cache.RedisCacheConfiguration;
+import org.springframework.data.redis.cache.RedisCacheManager;
+import org.springframework.data.redis.connection.RedisConnectionFactory;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.serializer.Jackson2JsonRedisSerializer;
+import org.springframework.data.redis.serializer.RedisSerializationContext;
+import org.springframework.data.redis.serializer.RedisSerializer;
+import org.springframework.data.redis.serializer.StringRedisSerializer;
+
+import java.time.Duration;
+
+@EnableCaching
+@Configuration
+public class RedisConfig extends CachingConfigurerSupport {
+    @Bean
+    public RedisTemplate<String,Object> redisTemplate(RedisConnectionFactory factory){
+        RedisTemplate<String,Object> template = new RedisTemplate<>();
+        RedisSerializer<String> redisSerializer = new StringRedisSerializer();
+        Jackson2JsonRedisSerializer jackson2JsonRedisSerializer = new Jackson2JsonRedisSerializer(Object.class);
+        ObjectMapper om = new ObjectMapper();
+        om.setVisibility(PropertyAccessor.ALL, JsonAutoDetect.Visibility.ANY);
+        om.enableDefaultTyping(ObjectMapper.DefaultTyping.NON_FINAL);
+        jackson2JsonRedisSerializer.setObjectMapper(om);
+        template.setConnectionFactory(factory);
+        //key序列化方式
+        template.setKeySerializer(redisSerializer);
+        //value序列化方式
+        template.setHashValueSerializer(jackson2JsonRedisSerializer);
+        return template;
+    }
+
+    @Bean
+    public CacheManager cacheManager(RedisConnectionFactory factory){
+        RedisTemplate<String,Object> template = new RedisTemplate<>();
+        RedisSerializer<String> redisSerializer = new StringRedisSerializer();
+        Jackson2JsonRedisSerializer jackson2JsonRedisSerializer = new Jackson2JsonRedisSerializer(Object.class);
+        //解决查询缓存转换异常的问题
+        ObjectMapper om = new ObjectMapper();
+        om.setVisibility(PropertyAccessor.ALL, JsonAutoDetect.Visibility.ANY);
+        om.enableDefaultTyping(ObjectMapper.DefaultTyping.NON_FINAL);
+        jackson2JsonRedisSerializer.setObjectMapper(om);
+        //配置序列化（解决乱码的问题），过期时间600秒
+        RedisCacheConfiguration configuration = RedisCacheConfiguration.defaultCacheConfig().entryTtl(Duration.ofSeconds(600))
+                .serializeKeysWith(RedisSerializationContext.SerializationPair.fromSerializer(redisSerializer))
+                .serializeValuesWith(RedisSerializationContext.SerializationPair.fromSerializer(jackson2JsonRedisSerializer))
+                .disableCachingNullValues();
+        RedisCacheManager cacheManager = RedisCacheManager.builder(factory)
+        .cacheDefaults(configuration)
+        .build();
+        return cacheManager;
+    }
+}
+```
+
+#### 5.4 测试
+
+```
+package com.atguigu.config;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+@RequestMapping("redisTest")
+public class RedisTest {
+    
+    @Autowired
+    private RedisTemplate redisTemplate;
+    
+    @GetMapping
+    public String testRedis(){
+        //设置值到redis
+        redisTemplate.opsForValue().set("name","lucy");
+        //从redis里获取值
+        Object name = redisTemplate.opsForValue().get("name");
+        return name.toString();
+    }
+    
+}
+```
+
+### 6.redis事务
+
+redis事务时一个单独的隔离操作：事务中的所有命令都会序列化、按顺序的执行。事务在执行的过程中，不会被其他客户端发送来的命令请求所打断。
+
+redis事务的主要作用就是串联多个命令防止别的命令插队。
+
+#### 6.1 事务命令Mulit、Exec、discard
+
+从输入Mulit命令开始，输入的命令都会依次进入命令队列中（组队阶段）queued，但不会执行，直到注入Exec（执行阶段）后，redis会将之前命令队列中的命令依次执行。
+
+组队的过程中可以通过discard来放弃组队。
+
+![指令阶段](https://gitee.com/liujunrull/image-blob/raw/master/202206051622359.png)
+
+#### 6.2 事务的错误处理
+
+1. 组队中某个命令出现报告错误，执行时整个队列都会被取消。
+2. 执行阶段某个命令出现错误，则只有报错的命令不会执行，其他的命令都会执行，不会回滚。
+
+#### 6.3 事务冲突
+
+##### 6.3.1 悲观锁
+
+每次拿数据时认为别人会修改，所以每次拿数据时都会上锁，这样别人想拿数据就会block直到他拿到锁。传统的关系型数据库都用到了很多这这种锁机制，比如行锁、表锁、读锁、写锁等，都是在操作之前先上锁。
+
+##### 6.3.2 乐观锁
+
+每次拿数据时认为别人不会修改，所以每次拿数据时不会上锁，但是在更新时会判断一下此期间有没有别人去更新数据，可以使用版本号机制。乐观锁适用于多读的应用类型，这样可以提高吞吐量。redis就是利用这种check-and-set机制实现事务的。
+
+在执行multi之前，先执行watch key1 [key2],可以监视一个或多个key，如果在事务执行之前这个或这些key被其他命令所改动，那么事务将被打断。 
+
+unwatch 取消监视
+
+#### 6.4 redis事务三特性
+
+- 单独的隔离操作
+  
+    - 事务中的所有命令都会被序列化、按顺序执行。事务在执行过程中，不会被其他客户端发送来的请求打断
+
+- 没有隔离级别的概念
+
+    - 队列中的命令没有被提交之前都不会实际被执行，因为事务提交前人恶化指令都不会被实际执行。
+
+- 不保证原子性
+
+    - 事务中如果有一条命令执行失败，其后的命令仍然会被执行，没有回滚。
+
+#### 6.5 秒杀案例
+
+模拟并发工具-ab工具/Jmeter
+
+```
+服务器端访问本地
+安装指令：yum install httpd-tools
+测试指令：ab -n [请求次数] -c [并发数] [请求地址]
+ 如：ab -n 1000 -c 100 http://本机ip:8080/seckill
+ -p: post请求
+ -T: content-type
+ 如：ab -n 1000 -c 100 -p ~/postfile -T application/x-www-form-urlencoded http://本机ip:8080/seckill
+```
+
+- 连接超时问题-连接池
+```
+package com.atguigu.jedis;
+
+import redis.clients.jedis.Jedis;
+import redis.clients.jedis.JedisPool;
+import redis.clients.jedis.JedisPoolConfig;
+
+public class JedisPoolUtil {
+    private static volatile JedisPool jedisPool = null;
+    private JedisPoolUtil(){}
+
+    public static JedisPool getJedisPoolInstance(){
+        if(null == jedisPool){
+         synchronized (JedisPoolUtil.class){
+             if(null == jedisPool){
+                 JedisPoolConfig poolConfig = new JedisPoolConfig();
+                 poolConfig.setMaxTotal(200);
+                 poolConfig.setMaxIdle(32);
+                 poolConfig.setMaxWaitMillis(100*1000);
+                 poolConfig.setBlockWhenExhausted(true);
+                 poolConfig.setTestOnBorrow(true);
+
+                 jedisPool = new JedisPool(poolConfig,"192.168.53.10",6379,60000);
+             }
+         }
+        }
+        return jedisPool;
+}
+    //释放资源
+    public static void release(JedisPool jedisPool, Jedis jedis){
+        if(null != jedis){
+            jedisPool.isClosed();
+        }
+    }
+}
+```
+
+- 超卖问题-乐观锁
+
+```
+public static boolean doSecKill(String uid,String prodid) throws IOException {
+        //1.uid和prodid非空判断，都为空秒杀未开始
+        if(uid == null || prodid == null){
+            return false;
+        }
+        //2.连接redis
+        //Jedis jedis = new Jedis("192.168.53.10",6379);
+        //通过连接池得到jedis对象
+        JedisPool jedisPool = JedisPoolUtil.getJedisPoolInstance();
+        Jedis jedis = jedisPool.getResource();
+        //3.拼接key
+        //3.1 库存key
+        String kcKey = "sk:" + prodid + ":qt";
+        //3.2 秒杀成功用户key
+        String userKey = "sk:" + prodid + ":user";
+        //监视库存
+        jedis.watch(kcKey);
+        //4.获取库存，如果库存null，秒杀还没有开始
+        if(jedis.get(kcKey) == null){
+            System.out.println("秒杀还未开始，请等待！");
+            jedis.close();
+            return false;
+        }
+        //5.判断用户是否重复秒杀,使用set避免重复
+        if(jedis.sismember(userKey,uid)){
+            System.out.println("已经秒杀成功，不能重复秒杀！");
+            jedis.close();
+            return false;
+        }
+        //6.判断商品数量，如果小于1秒杀结束
+        if(Integer.parseInt(jedis.get(kcKey)) <= 0){
+            System.out.println("秒杀已经结束");
+            jedis.close();
+            return false;
+        }
+        //7.秒杀过程,加入事务
+        Transaction multi = jedis.multi();
+        //组队操作，库存-1。把秒杀成功用户加入到清单里+1
+        multi.decr(kcKey);
+        multi.sadd(userKey,uid);
+        //执行
+        List<Object> list = multi.exec();
+        if(list == null || list.size() == 0){
+            System.out.println("秒杀失败");
+            jedis.close();
+            return false;
+        }
+        //7.1 库存-1
+        //jedis.decr(kcKey);
+            //7.2 把秒杀成功用户加入到清单里
+        //jedis.sadd(userKey,uid);
+        System.out.println("秒杀成功...");
+        jedis.close();
+        return true;
+    }
+```
+
+- 库存遗留问题-LUA脚本
+
+    将复杂的或者多步的redis操作，写为一个脚本，一次提交给redis执行，减少吩咐连接redis的次数，提升性能
+
+    LUA脚本是类似redis事务，有一定的原子性，不会被其他命令插队，可以完成一些redis事务性的操作
+
+    但是注意redis的lua脚本功能，只有在redis 2.6以上的版本猜哦可以使用
+
+    利用Lua脚本淘汰用户，解决超卖问题。
+
+    redis 2.6以后，通过lua脚本解决争抢问题，实际上是redis利用单线程的特性，用任务队列的方式解决多任务并发问题。
+
+ ```
+        static String secKillScript = "local userid=KEYS[1];" +
+            "local prodid=KEYS[2];" +
+            "local qykey='SecKill:'..prodid..\":kc\";" +
+            "local userskey='Seckill:'..prodid..\":user\";" +
+            "local userExists=redis.call(\"sismeber\",usersKey,userid);" +
+            "if tonumer(userExists)==1 then" +
+            "   return 2;" +
+            "end" +
+            "local num=redis.call(\"get\",qtkey);" +
+            "if tonumber(num)<=0 then" +
+            "   return 0;" +
+            "else" +
+            "   redis.call(\"desc\",qukey);" +
+            "   redis.call(\"sadd\",usersKey,userid);" +
+            "end" +
+            "return 1";
+   
+    public static boolean doSecKill(String uid,String prodid) throws IOException {
+        JedisPool jedisPool = JedisPoolUtil.getJedisPoolInstance();
+        Jedis jedis = jedisPool.getResource();
+
+        String sha1 = jedis.scriptLoad(secKillScript);
+        Object result = jedis.evalsha(sha1,2,uid,prodid);
+
+        String reString = String.valueOf(result);
+        if("0".equals(reString)){
+            System.out.println("已抢空！");
+        }else if("1".equals(reString)){
+            System.out.println("抢购成功！");
+        }else if("2".equals(reString)){
+            System.out.println("该用户已抢过！");
+        }else{
+            System.err.println("抢购异常！");
+        }
+
+        jedis.close();
+        return true;
+    }
+ ```
+
+### 7. redis的持久化
+
+分为RDB和AOF
+
+#### 7.1 RDB
+
+在指定的**时间间隔**内将内存中的**数据集快照**写入磁盘
+
+##### 7.1.1 备份如何执行的
+
+redis会单独创建（fork）一个子进程来进行持久化，会先将数据写入到一个**临时文件**中，待持久化过程都结束了，再用这个临时文件替换上次持久化好的文件。整个过程中，主进程是不进行任何IO操作的，这就确保了极高的性能，如果需要规模的数据的恢复，且对于数据恢复的完整性不是很敏感，那RDB方式要比AOF方式更加高效。RDB的缺点是**最后一个持久化后的数据可能丢失**。
+
+##### 7.1.2 Fork
+
+- Fork的作用是复制一个于当前进行一样的进程。新进程的所有数据（变量、环境变量、程序计数器等）数值都和原进程一致，但是是一个全新的进程，并作为原进程的子进程
+- 在linux程序中，fork()会产生一个和父进程完全相同的子进程，但子进程在此后多次exec系统调用，出于效率考虑，linux引入了“写时复制技术”
+- 一般情况父进程与子进程会共用一段物理内存，只有进程空间的各段的内容要发生变化时，才会将父进程的内容复制一份给子进程。
+
+##### 7.1.3 config文件
+
+stop-writes-on-bgsave-error:当redis无法写入磁盘的话，直接关掉redis的写操作。推荐yes
+
+rdbcompression：对于存储到磁盘中的快照，可以设置是否进行压缩存储。如果是的话，redis会使用**LZF算法**进行压缩。如果不想消耗CPU进行压缩，可以设为No。推荐yes
+
+rdbchecksum:检查完整性。在存储快照后，可以让redis使用CRC64算法来进行数据校验。但是这样做会增加大约10%的性能消耗。推荐yes
+
+save 秒钟：写操作次数。RDB时整个内存的压缩过的snapshot，RDB的数据结构，可以配置复合的快照触发条件。手动保存
+
+bgsave：redis会在后台异步进行快照操作，快照同时还可以响应客户端请求。
+
+可以通过lastsave命令来获取最后一次成功执行快照的时间
+
+##### 7.1.4 优势
+
+- 适合大规模的数据恢复
+- 对数据完整性和一致性要求不高更适合使用
+- 节省磁盘空间
+- 恢复速度快
+
+##### 7.1.5 劣势
+
+- fork的时候，内存中的数据被克隆了一份，大致2倍的膨胀性服用考虑
+- 虽然redis在fork时使用了写时拷贝技术，但是如果数据庞大时还是比较消耗性能
+- 在备份周期在一定时间间隔做一次备份，所有如果redis意外down掉的话，就是丢失最后一次快照后所有的修改
+
+
+#### 7.2 AOF(Append Only File)
+
+以日志的形式来记录每个写操作（增量保存），将redis执行过的所有写指令记录下来（读操作不记录），只许追加文件但不可以改写文件，redis启动之初会读取该文件重新构建数据，换言之，redis重启的话就根据日志文件的内容将写指令从前到后执行一次以完成数据的恢复工作。
+
+##### 7.2.1 AOF持久化流程
+
+1) 客户端的请求命令会被append追加到AOF缓冲区内
+2) AOF缓冲区根据AOF持久化策略[always,everysec,no]将操作sync同步到磁盘的AOF文件中
+3) AOF文件大小超过重写策略或手动重写时，会对AOF文件rewrite重写，压缩AOF文件容量
+4) redis服务重启时，会重新load加载AOF文件中的写操作达到数据恢复的目的
+
+#### 7.2.2 AOF默认不开启,优先读取AOF数据
+
+可以在redis.conf打开，appendonly yes,配置文件名称，默认为appendonly.aof
+
+AOF文件的保存路径同RDB文件路径一致。
+
+``` 
+查看redis进程：ps -ef | grep redis
+杀掉redis进程：kill -9 端口号
+```
+##### 7.2.3 AOF的异常恢复
+
+如果AOF文件损坏，通过/usr/local/bin/redis-check-aof--fix appendonly.aof进行恢复
+
+备份被写坏的AOF文件
+
+重启redis，然后重新加载
+
+##### 7.2.4 AOF同步频率设置
+
+appendfsync always:始终同步，每次redis的写入都会立刻计入日志；性能较差但数据完整性较好
+
+appendfsync everysec:每秒同步，每秒计入日志一次，如果宕机，本秒的数据可能丢失。
+
+appendfsync no：不主动进行同步，把同步交给操作系统
+
+##### 7.2.5 Rewrite压缩
+
+AOF采用文件追加方式，文件会越来越大。为了避免出现此种情况，新增加了**重写**机制。当AOF文件的大小超过所设定的阈值时，redis会启动AOF文件的内容压缩，只保留可以恢复数据的最小指令集，可以使用命令bgrewriteaof
+
+**重写原理**
+
+AOF文件持续增长而过大时，会fork一条新进程来将文件重新（也是先写临时文件最后在rename），redis4.0之后的重写，是指就是把rdb的快照，以二进制的形式附在新的AOF头部，作为已有的历史数据，替换到原来的流水账操作。
+
+no-appendfsync-on-rewrite
+
+触发条件：默认AOF文件大小是上次rewrite后大小的一倍且文件大于64M
+
+auto-aof-rewrite-percentage：设置重写的基准值。文件达到100%时开始重写（大小是原来重写后文件的2倍）
+
+auto-aof-rewrite-min-size:设置重写的基准值。最小64M
+
+系统载入时或许上次重写完毕时，redis会记录此时AOF大小，设为**base_size**
+
+##### 7.2.6 优势
+
+- 备份机制更稳健。丢失数据概率耕地
+- 可读的日志文本，通过操作AOF文件，可以处理误操作。
+
+##### 7.2.7 劣势
+
+- 比起RDB占用更多的磁盘空间
+- 恢复备份速度要慢
+- 每次读写都操作的话有一定的性能压力
+- 存在个别bug，造成不能恢复
+
+####  7.3 使用哪个
+
+官方推荐两个都启动。如果对数据不敏感，可单独使用RDB。不建议单独使用AOF，因为可能胡i出现bug。如果只是做纯内存缓存，可以都不用
+
+### 8. 主从复制
+
+主机数据更新后根据配置和策略，自动同步到备机的master/slaver机制，Master以写为主，Slave以读为主。
+
+读写分离，容灾快速恢复（一主多从，当主机挂断，考虑集群）
+
+#### 8.1 简单一主两从搭建
+
+1) 创建/myredis文件夹
+2) 复制redis.conf配置文件到文件夹中
+3) 配置一主两从，创建三个配置文件
+
+    - redis6379.conf
+    - redis6380.conf
+    - redis6381.conf
+
+4) 在三个配置文件写入内容
+   include/myredis/redis.conmf
+   prifile/var/run/redis_6379.pid
+   port6379
+   dbfilename dump6379.rbd
+
+```
+info replication：查看主从信息
+```
+
+在从机上执行slaveof 主机Ip 端口号 设为从机
+
+#### 8.2 复制原理
+
+1) slave启动成功连接到master后发送一个sync命令
+2) master接到命令启动后台的存盘进程，同时收集所有接收到的用于修改数据集命令，在后台进程执行完毕之后，master将传送这个数据文件到slave，以完成一次完全同步
+3) 全量复制：slave服务在接受到数据库文件数据后，将其存盘并加载到内存中。
+
+    增量复制：master继续将新的所有收集到的修改命令依次传给slave，完成同步
+4) 只要重新连接master，一次完全同步（全量复制）将被自动执行。
+
+#### 8.3 三个特点
+
+1) 一主两仆
+
+    主服务器挂掉之后再重新启动还是主服务器，从服务器不会晋升为主服务器
+
+2) 薪火相传
+
+    从服务器下还可以再设置从服务器
+
+3) 反客为主
+
+    slaveof no no：设置从服务器为主服务器
+
+#### 8.4 哨兵模式
+
+反客为主的自动模式
+
+
+
+
+
+
+
+
 
 
 
