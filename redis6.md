@@ -830,6 +830,197 @@ info replication：查看主从信息
 
 ### 9. 集群
 
+容量不够，redis如何进行扩容？
+
+并发写操作，redis如何分摊？
+
+另外，主从模式，薪火相传模式，主机宕机，导致ip地址发生变化，应用程序中配置需要修改对应的主机地址、端口等信息
+
+之前通过**代理主机**来解决，但是redis3.0提供了解决方案，就是无中心化集群配置。
+
+#### 9.1 什么是集群
+
+redis集群实现了对redis的水平扩容，即启动N个redis节点，将整个数据库分布存储在这N个节点中，每个节点存储总数据的1/N。
+
+redis集群通过分区来提供一定程度的可用性：即使集群中有一部分节点生效或者无法进行通讯，集群也可以继续处理命令请求。
+
+#### 9.2 创建集群
+
+    - 制作6个实例，端口号6379-6391
+    - redis cluster配置修改
+      - include/home/bigdata/redis.conf
+      - port 6379
+      - pidfile "var/run/redis_6379.pid"
+      - dbfilename "dump6379.rdb"
+      - dir "/home/bigdarta/redis_cluster"
+      - logfile "/home/bigdata/redis_cluster/redis_err_6379.log"
+    - 将6个集群合成一个集群
+      - 组合之前确保所有redis实例启动，nodes-xxxx.conf文件都生成正常
+      - cd /opt/redis-6.2.1/src
+      - redis -cli --cluster created --cluster-replicas 192.168.11.101:6379到6391
+      - 此处不要用127.0.0.1，要用真实ip地址
+      - replicas 1 采用最简单的方式配置集群，一台主机，一台从机
+    - redis-cli -c -p 6379 采用集群策略连接，设置数据会自动切换到相应的写主机
+    - 通过cluster nodes 查看集群信息
+
+#### 9.3 什么是slot
+
+一个redis集群包含16384个插槽，数据库中每个键都属于这16384个插槽中的一个
+
+集群使用公式CRC16(key)%16384来计算键key属于哪个槽，其中CRC6(key)语句用于计算键key的CRC16的校验和
+
+集群中每一个节点负责处理一部分插槽
+
+不在一个slot下的键值，不能使用mget、mset大声多键操作。
+
+可以通过{}来定义组的概念，从而使key中{}内相同内容的键值对放到一个slot中去。
+
+mset k1{cust} v1 k2{cust} v2
+
+mget k1{cust}  k2{cust} 
+
+#### 9.4 查询集群中的值
+
+cluster getkeysinslot slot count:返回count个slot槽中的键
+
+#### 9.5 故障恢复
+
+如果主节点下线，在15秒重启不影响主关系，超过15秒还未恢复，从节点自动升为主节点。主节点恢复后，会变成从机
+
+cluster-require-full-coverage为默认是yes，如果一段插槽的主从都挂掉，整个集群都挂掉，no，不影响整个集群。
+
+集成jedis
+
+```java
+public class JedisClusterTest{
+    public static void ain(String[] args){
+        Set<HostAndPort> set = new HashSet<HostAndPort>;
+        set.add(new HostAndPort("192.168.31.211",6379);
+        JedisCluster  jesidCluster = new JedisCluster(set);
+        jedisCluster.set("k1","v1");
+        sout(jedisCluster.get("k1"));
+    }
+}
+```
+
+#### 9.6 优点
+
+实现扩容
+
+分摊压力
+
+无中心配置相对简单
+
+#### 9.7 缺点
+
+多键操作不支持
+
+多键的redis事务不支持。lua脚本不支持
+
+由于集群方案出现较晚，很多公司已经采用了其他的集群方案，而代理或者客户端分片的方案想要迁移到redis cluster，需要整体迁移而不是逐步过渡，复杂度较高。
+
+### 10. redis应用问题
+
+#### 10.1 缓存穿透
+
+redis缓存命中率低，导致大量数据请求数据库，造成数据库压力过大而崩溃。
+
+**解决方案**
+
+- 对空值缓存：如果一个查询返回数据为空，将空值进行缓存，设置空值的国企时间很短，最长不超过5分钟。
+- 设置可访问的白名单：使用bitmaps类型定义一个可以访问的名单，名单id作为bitmaps的偏移量，每次访问和Bitmap中的id进行比较，如果id查不到，进行拦截，不允许访问。
+- 布隆过滤器：实际上是一个很长的二进制向量（位图）和一系列随机映射函数（哈希函数）。本质是bitmaps，可以用于检测一个元素是否在一个集合中。优点是空间效率和查询实际都远远超过一般的算法，缺点是有一定的误识别率和删除困难。
+- 进行实时监控：当发现redis命中率急剧降低，需要排查访问对象和访问的数据，和运维人员配合，设置黑名单限制服务。
+
+#### 10.2 缓存击穿
+
+redis中某个热门key过期吗，此时有大量访问使用这个key
+
+**解决方案**
+
+- 预先设置热门数据：在redis访问高峰之前，把一些人们数据提前存入到redis里面，加大这些热门数据key的时长。
+- 实时调整 ：现场监控热门数据，实时调整key的过期时长。
+- 使用锁：在缓存失效的时候（判断拿出来的值为空），不是立即去load db。先使用缓存工具的某些带成功操作返回值的操作（比如redis的sentnx）
+
+#### 10.3 缓存雪崩
+
+极少时间内，查询大量key集中过期的情况
+
+**解决方案**
+
+- 构建多级缓存架构：nginx缓存+redis缓存+其他缓存（ehcache等）
+- 使用锁或队列：使用加u送或者队列的方式保证不会有大量的线程对数据库进行一次性读写，从而避免失效时大量的并发请求落到底层存储系统上。不适用于高并发情况。
+- 设置过期标志更新缓存：记录缓存数据是否过期（设置提前量），如果过期会触发通知另外的线程在后台去更新实际key的缓存
+- 将缓存失效实际分散开：比如可以在原有的失效实际基础上增加一个随机值，比如1-5分钟随机，这样每个缓存的过期实际重复率会降低。
+
+### 11. 分布式锁
+
+跨JVM的互斥机制来控制共享资源的访问
+
+分布式锁的主流实现方案：
+
+    - 基于数据库实现分布式锁
+    - 基于缓存（redis)，性能最好
+    - 基于Zookeeper，可靠性最高
+
+#### 11.1 redis实现分布式锁
+
+上锁并设置过期时间
+
+set sku:1:info "ok" NX PX 10000
+
+EX second:设置键的过期实际为second秒
+
+set key value EX second效果等同于 set EX key second value
+
+#### spring boot整合
+
+```java
+import org.springframework.web.bind.annotation.GetMapping;
+
+@GetMapping("testLock")
+public void testLock(){
+    String uuid = UUID.random().toString()
+    //1.获取锁，setne
+        Boolean lock = redisTemplate.opsForValue().setIfAbsent("lock",uuid,3,TimeUnit.SE CONDS);
+        //2.获取锁成功查询num的值
+        if(lock){
+           Object value = redisTemplate.opsForValue().get("num");
+           //2.1 判断num 为空返回
+        if(StringUtils.isEmpty(value)){
+            return;
+        }
+        //2.2 如果有值转为int
+        int num = Integer.parseInt(value + "");
+        //2.3 把redis的num+1
+        redisTemplate.opsForValue().set("num",++num);
+        //释放锁
+        String lockUuid = (String) redisTemplate.opsForValue().get("lock");
+        if(uuid.equals(lockUuid){
+        redisTemplate.delete("lock");
+        }
+     
+        }else{
+            //3.获取锁失败，每隔0.1秒后再 获取
+            try{
+               Thread.sleep(100);
+               testLock();
+        }catch(InterruptedException e){
+                e.printStackTrace();
+        }
+    }
+}
+```
+
+LUA脚本保证释放锁的原子性
+
+
+
+
+
+
+
+
 
 
 
