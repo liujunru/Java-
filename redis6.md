@@ -239,7 +239,7 @@ zrank key value：返回该值在集合中的排名，从0开始
 
 ##### 3.6.2 数据结构
 
-sortedset(zset)是redis提供的一个非常特别的数据结构，一方面它等价于java的数据结构Map<String,Double>，可以给每个原色value赋予一个权重score，另一方面他又类似于TreeSet，内部的元素会按照权重score进行排序，可以得到每个元素的名次，还以为通过score的范围来获取元素的列表。
+sortedset(zset)是redis提供的一个非常特别的数据结构，一方面它等价于java的数据结构Map<String,Double>，可以给每个元素的value赋予一个权重score，另一方面他又类似于TreeSet，内部的元素会按照权重score进行排序，可以得到每个元素的名次，还以为通过score的范围来获取元素的列表。
 
 zset底层使用了两个数据结构。
 
