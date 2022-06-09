@@ -316,3 +316,41 @@ java.util.concurrent包中的执行器将为你管理Thread对象，从而简化
 ##### 线程池种类选择
 CachedThreadPool在程序执行过程中通常会创建与所需数量相同的线程，然后再它回收旧线程的时候停止创建新线程，因此是合理的Executor的首选。只有当这种方式引发问题时，才需要切换到FixedThreadPool。
 SingleThreadExecutor就像是线程数量为1的FixedThreadPool。这ui对于你希望在另一个线程连续运行的任何事物（长期存活的任务）来说非常有用。例如监听进入的套接字链接的任务。它对于希望在线程中运行的短任务也同样很方便。比如更新本地或远程日志的小任务，或者是事件分发线线程。他会序列化所有提交给它的任务，并会维护它自己（隐藏）的悬挂任务队列。通过序列化任务，你可以消除对序列化对象的需求。
+**程序设计的基本目标**
+
+将保持不变的事物和发生改变的事物相分离。可以使用策略模式，将会发生改变的代码封装成单独的类（策略对象），可以将策略对象传递给总是相同的代码。例如，用不同的对象来表示不同的比较方式，然后将他们传递给相同的排序代码
+#### lis实用方法
+* indexOfSubList(List source,List target):返回target在source中第一次出现的位置，找不到返回-1
+* lastOfSubList(List source,List target)：返回最后一次出现的位置
+* rotate(List,int distance):所有元素向后移动distance个位置，末尾的元素循环到前面来
+* swap(List,int i,int j):交换list中位置i与位置j的元素。通常比自己写的代码快
+* fill(List<? super T>,T x):用对象x替换list中所有元素
+* frequency(Collection,Object x):返回Collection中等于x的元素个数
+
+##### 设置Collection或Map为不可修改
+```java
+List<String> a = Collections.unmodifiableList(new ArrayList<String> data);
+```
+使用场景：将容器设为只读前，填入有意义的数据，装在数据后，使用“不可修改的”方法返回的引用替换原来的引用，这样就不用担心无意中修改了只读的内容。另一方面，此方法允许你保留一份可修改的容器，作为类的private成员，然后通过某个方法调用返回对该容器的“只读”的引用。这样一来，只有你可以修改容器的内容，而别人只能读取。
+##### Collection或Map的自有同步控制
+```java
+Collection<String> c = Collections,synchronizedList(new ArrayList<String> data);
+```
+### IO系统
+任何自Inputstream或Reader派生而来的类都含有名为read()的基本方法，用于读取单个字节或者字节数组。同样，任何自OutputStream或Writer派生而来的类都含有名为write()的基本方法，用于写单个字节或者字节数组。但是我们通常不会用到这些方法，他们之所以存在是因为别的类可以使用他们，以便提供更有用的接口。因此，我们很少使用单一的类来创建流对象，而是通过叠合多个对象来提供所期望的功能（这是装饰器设计模式）
+#### 标准IO重定向
+```java
+PrintStream console = System.out;
+BufferedInputStream in = new BufferedInputStream(new FileINputStream("readrectiong.java"));
+PrintStream out = new PrintStream(new BUfferedOutputStream(new FileOutputStream("test.out")));
+System.setIn(in);
+System.setOut(out);
+System.err(out);
+BUfferedReader br = new BufferedReader(new InputStreamReader(System.in));
+String s;
+while((s = br.readLine()) != null)
+sout(s);
+out.close();
+System.setOut(console);
+```
+这个程序将标准输入附接到文件上，并将标准输出和标准错误重定向到另一个文件。注意，他在程序开头处存储了队最初的System.out对象的引用，并且在结尾处将系统恢复到了该对象上。
