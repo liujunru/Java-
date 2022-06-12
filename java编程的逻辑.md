@@ -99,7 +99,255 @@ boolean equals(char[] a,char[] a2):判断两个数组是否相同
 
 ### 3.1.4 小结
 
-通过类实现自定义数据类型，封装该类型的数据所具有的属性和操作，隐藏实现细节，从而在更高的层次（类和对象的层次，而非基本数据类型和函数的层次）上考虑和操作数据，是计算机程序解决复杂问题的一种重要思维方式。
+通过**类**实现自定义数据类型，**封装**该类型的数据所具有的属性和操作，**隐藏实现细节**，从而在更高的层次（类和对象的层次，而非基本数据类型和函数的层次）上考虑和操作数据，是计算机程序解决复杂问题的一种重要思维方式。
+
+# 4. 类的继承
+
+## 4.1 基本概念
+
+```java
+public class ShapeManager{
+  private static final int MAX_NUM = 100;
+  private Shape[] shapes = new Shape[MAX_NUM];
+  private int ShapeNum = 0;
+  public void addShape(Shape shape){
+    if(shapeNum < MAX_NUM>){
+      shapes[shapeNum++] = shape;
+    }
+  }
+  public void draw(){
+    for(int i = 0; i < shhapeNum; i++>){
+      shapes[i].draw();
+    }
+  }
+}
+
+  public static void main(String[] args) {
+     ShapeManager manager = new ShapeManager();
+     manager.addShape(new Cicrle(new Point(4,2)));
+     manager.addShape(new Line(new Point(4,2)));
+     manager.addShape(new ArrowLine(new Point(4,2)));
+     manager.draw();
+    }
+```
+
+  变量shape可以引用任何Shape子类类型的对象，这叫**多态**，即一种类型的变量，可以引用多种实际类对象。这样对于变量shape，他就有两个类型：类型Shape,称之为shape的**静态类型**；类型Circle/Line/ArrowLine。我们称之为shape的**动态类型**。在ShapeManager的draw方法中，shape[i].draw()调用的是其对应动态类型的draw方法，这称之为方法的**动态绑定**。
+
+  **多态和动态绑定**是计算机程序的一种重要思维方式，使得操作对象的程序不需要关注对象的实际类型，从而可以从统一处理不同对象，但又能实现每个对象的特有行为。
+
+## 4.2 继承的细节
+
+静态绑定在程序编译阶段即可决定，而动态绑定则要等到程序运行时。实例变量、静态变量、静态方法、private方法，都是静态绑定的。
+
+父类方法定义实现的模板，具体实现由子类提供，这种应用位模板方法。模板方法在很多框架中有广泛的应用，这是使用protected的一种常见场景。
+
+重写时，子类方法不能降低父类方法的可见性，子类方法可以升级父类方法的可见性。
+
+## 4.3 继承实现的基本原理
+
+类加载过程：
+  1. 分配内存保存类的信息
+  2. 给类变量赋默认值
+  3. 加载父类
+  4. 设置父子关系
+  5. 执行类初始化代码
+
+创建对象的过程包括：
+  1. 分配内存
+  2. 对所有实例变量赋默认值
+  3. 执行实例初始化代码。
+
+动态绑定实现的机制就是根据对象的实际 类型查找要执行的方法，子类型中找不到的时候再查找父类。
+
+如果继承的层次比较深，需要调用的方法位于比较上层的父类，而调用的的效率时比较低的，因为每次调用都要进行多次查找。大多数系统使用一种称为**虚方法表**来优化调用的效率。
+
+所谓虚方法表，就是在类加载的的时候为每个类创建一个表，记录该类的对象所有**动态绑定的方法（包括父类的方法）及其地址**，但一个方法只有一条记录，子类重写了父类方法后只会保留**子类**的。
+
+对变量的访问是**静态绑定**的，无论是类变量还是实例变量。
+
+继承具有破坏力。因为一方面继承可能破坏封装，封装是程序设计的第一原则。子类和父类直接可能存在着实现细节的依赖。子类在继承父类的时候，往往不得不关注父类的实现字节，而父类在修改其内部实现，如果不考虑子类，也往往会影响子类。另一方面，继承可能没有反映出is-a关系。
+
+**正确使用继承**
+
+1. 如果基类是别人写的，子类是我们自己写的
+
+   - 重写方法不要改变预期的行为
+   - 阅读文档说明，理解可重新方法的实现机制，尤其是方法之间的依赖关系
+   - 在基类修改的情况下，阅读其修改说明，相应修改子类。
+
+2. 基类是自己写的，子类是别人写的
+   
+    - 使用继承反映真正的额is-a关系，只将真正公共的部分放到基类。
+    - 对不希望被重写的公开方法添加final修饰符
+    - 写文档，说明可重写方法的实现机制，为子类提供指导，告诉子类应该如何重写。
+    - 在基类修改可能影响子类时，写修改说明。
+
+# 5. 类的扩展
+
+## 5.1 接口的本质
+
+接口声明了一组能力，但他自己没有实现这个能力，他只是一个约定。接口设计交互两方对象，一方需要实现这个接口，一方使用这个接口，但双方对象并不直接相互依赖，他们只是通过接口间接交互。
+
+与类一样，接口也可以使用instanceof关键字，判断一个对象是否实现了某接口
+
+Java8允许在接口中定义两类新方法：静态方法和默认方法
+
+```java
+public interface Idemo{
+  void hello();
+  public static void test(){
+    sout("hello");
+  }
+  default void hi(){
+    sout("hi");
+  }
+}
+```
+
+**针对接口编程**是一种重要的程序思维方式，这种方法不仅可以复用代码，还可以降低耦合，提高灵活性，是分解复杂问题的一种重要工具。
+
+## 5.2 抽象类
+
+#### 为什么需要抽象类
+
+使用抽象方法而非空方法体，子类就知道它必须要实现该方法，而不可能忽略，若忽略Java编译器会提示错误。使用抽象类，类的使用者创建对象的时候，就知道必须要使用某个具体子类，而不可能误用不完整的父类。
+
+抽象类可以减少误用。抽象类经常和接口配合使用，接口定义能力，抽象类提供默认实现，方便子类实现接口。
+
+## 5.3 内部类
+
+内部类与包含它的外部类有比较密切的关系，而与其他类关系不大，定义在类内部，可以实现对外部完全隐藏，可以有更好的封装性，代码实现上也往往更为简洁。
+
+每个内部类最后都会被编译成一个独立的类，生成一个独立的字节码文件。
+
+### 5.3.1 静态内部类
+
+```java
+public class Outer {
+    private static int shared = 100;
+    public static class StaticInner{
+        public void innerMethod(){
+            System.out.println("inner" + shared);
+        }
+        
+    }
+    public void test(){
+        StaticInner si = new StaticInner();
+        si.innerMethod();
+    }
+}
+```
+ 静态内部类与外部类的联系也不大（与其他内部类相比）。它可以访问外部类的**静态变量和方法**，如innerMethod直接访问shared变量，但不可以访问**实例变量和方法**。在类内部，可以直接使用内部静态类，如test()所示。
+
+ public静态内部类可以被外部使用，只是需要通过“外部类.静态内部类”的方式使用
+ ```java
+ Outer.SatticInner si = new Outer.SatticInner();
+ si.innerMethod();
+ ```
+
+ 静态内部类的使用场景是很多的，如果它与外部类关系密切，且不依赖于外部类实例，则可以考虑定义为静态内部类。
+
+ Java Api中使用静态内部类的例子：
+
+  - Integer类内部有一个私有静态内部类IntegerCache，用于支持整数的自动装箱
+  - 表示链表的Linked List类内部Node，表示链表中的每个节点
+  - Character类内部有一个Public静态内部类UnicodeBlock，用于表示一个Unicode block。
+
+### 5.3.2 成员内部类
+
+```java
+public class Outer {
+    private  int a = 100;
+    public  class Inner{
+        public void innerMethod(){
+            System.out.println("outer a" + a);
+        }
+
+    }
+    private void action(){
+        System.out.println("action");
+    }
+    public void test(){
+       Inner inner = new Inner();
+       inner.innerMethod();
+    }
+}
+```
+
+Inner就是成员内部类，于静态内部类不同，除了**静态变量和方法**，成员内部类还可以直接访问外部类的**实例变量和方法**。
+
+成员内部类对象总是于一个外部类对象相连的，在外部使用时，它要先创建一个Outer类对象，如：
+
+```java
+Outer outer = new Outer();
+OUter.Inner inner = outer.new Inner();
+inner.innerMethod();
+```
+
+**成员内部类中不可以定义静态变量和方法（final变量除外），方法内部类和匿名内部类也不可以**，原因：
+
+这些内部类是与外部实例相连的，不应独立使用，而静态变量和方法作为类型的数属性和方法，一般是独立使用的，在内部类中意义不大，而如果内部类确实需要静态变量和方法，那么也可以挪到外部类中。
+
+**应用场景**
+
+成员内部类有哪些应用场景呢？如果内部类和外部类关系密切，需要访问外部类的实例变量或方法，则可以考虑定义为成员内部类。外部类的一些方法的返回值可能是u某个接口，为了返回这个接口，外部类方法可能使用内部类实现这个接口，这个内部类可以被设为private，对外完全隐藏。
+
+Java Api：
+
+LinkedList,他的两个方法listIterator和descendingIterator的返回值都是接口Iterator，调用者可以通过Iterator接口对链表遍历，这两个内部类都实现了接口Iterator。
+
+### 5.3.3 方法内部类
+
+```java
+public class Outer {
+    private  int a = 100;
+    public void test(final int param){
+        final String str = "hello";
+        class Inner{
+            public void innerMethod(){
+                System.out.println("outer a" + a);
+                System.out.println("param" + param);
+                System.out.println("local str" + str);
+            }
+
+        }
+        Inner inner = new Inner();
+        inner.innerMethod();
+    }
+}
+```
+
+类Inner定义在外部类方法test中，方法内部类只能在定义的方法内被使用。如果方法是实例方法，则除了静态变量和方法，内部类还可以直接访问外部类的实例变量和方法，如innerMethod直接访问了外部私有实例变量a。如果方法是静态方法，则方法内部类只能访问外部类的静态变量和方法。方法内部类还可以直接访问方法的参数和方法中的局部变量。
+
+**为什么方法内部类访问外部方法中的参数和局部变量时，这些变量必须声明为final**
+
+  - 方法内部类操作的并不是外部的变量，而是他自己的实例变量，只是这些变量的值和外部一样，对这些变量赋值，并不会改变外部的值，为避免混淆，所以声明为final。java8之后不需要加final 也不会报错。java 加了一个语法糖，声明那个变量时可以不加final修饰，但是效果和加了是一样的，同时也要按照final变量的方式使用它，不然会报错。
+
+### 5.3.4 匿名内部类
+
+```java
+public class Outer {
+   public void test(final int x,final int y){
+       Point p = new Point(2,3){
+           @Override
+           public double distance() {
+               return distance(new Point(x,y));
+           }
+       };
+       System.out.println(p.distance());
+   }
+}
+```
+匿名内部类是与new关联的，在创建对象的时候定义类，new后面是父类或者父接口，然后是圆括号（），里面是可以传递给父类构造方法的参数，最后是大括号{}，里面是类的定义。
+
+匿名内部类只能被使用一次，用来创建一个对象。他没有名字，没有构造方法，但可以根据参数列表，调用对应的父类构造方法。与方法内部类一样，匿名内部类可以访问外部类的所有变量和方法，可以访问方法中的final参数和局部变量。
+
+匿名内部类可以做的，方法内部类都能做做。但如果对象只创建一次，且不需要构造方法来接受参数，则可以使用匿名内部类，这样代码书写上更简洁。
+
+将程序分为保持不变的主体框架和针对具体情况的可变逻辑，通过回调的方式进行协作，是计算机程序的一种常用实践。匿名内部类是实现回调接口的一种简便方式。
+
+## 5.4.0 枚举的本质
+
 
 
 
