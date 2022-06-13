@@ -348,6 +348,106 @@ public class Outer {
 
 ## 5.4.0 枚举的本质
 
+# 7.常用基础类
+
+## 7.1 包装类
+
+Float有一个静态方法floatToIntBits()，将float的二进制表示看作int。需要注意的是，只有两个float的二进制表示完全一样的时候，equals才会返回true。
+
+包装类都是**不可变类**。所谓不可变是指实例对象一旦创建，就没有办法修改了。这是通过如下方式强制实现的：
+
+  ❑ 所有包装类都声明为了final，不能被继承。
+  
+  ❑ 内部基本类型值是私有的，且声明为了final。
+  
+  ❑ 没有定义setter方法。
+  
+  为什么要定义为不可变类呢？不可变使得程序更为简单安全，因为不用操心数据被意外改写的可能，可以安全地共享数据，尤其是在多线程的环境下。
+
+  IntegerCache表示Integer缓存，其中的cache变量是一个静态Integer数组，在静态初始化代码块中被初始化，默认情况下，保存了-128～127共256个整数对应的Integer对象。在valueOf代码中，如果数值位于被缓存的范围，即默认-128～127，则直接从Integer-Cache中获取已预先创建的Integer对象，只有不在缓存范围时，才通过new创建对象。通过共享常用对象，可以节省内存空间，由于Integer是不可变的，所以缓存的对象可以安全地被共享。Boolean、Byte、Short、Long、Character都有类似的实现。这种共享常用对象的思路，是一种常见的设计思路，它有一个名字，叫**享元模式**，英文叫Flyweight，即共享的轻量级元素。
+
+  ## 7.2 String
+
+  String类的hashCode方法，代码如下：
+
+```java
+  public int hashCode() {
+        int h = hash;
+        if (h == 0 && value.length > 0) {
+            char val[] = value;
+
+            for (int i = 0; i < value.length; i++) {
+                h = 31 * h + val[i];
+            }
+            hash = h;
+        }
+        return h;
+    }
+```
+
+## 7.3 StringBuilder
+
+new StringBuilder()代码内部会创建一个长度为16的字符数组，count的默认值为0
+
+默认长度为16，长度不够时，会先扩展到16*2+2即34，然后扩展到34*2+2即70，然后是70*2+2即142，这是一种指数扩展策略。为什么要加2？这样，在原长度为0时也可以一样工作。为什么要这么扩展呢？这是一种折中策略，一方面要减少内存分配的次数，另一方面要避免空间浪费。在不知道最终需要多长的情况下，**指数扩展**是一种常见的策略，广泛应用于各种内存分配相关的计算机程序中。
+
+insert方法的实现代码：
+```java
+    public AbstractStringBuilder insert(int index, char[] str, int offset,
+                                        int len)
+    {
+        if ((index < 0) || (index > length()))
+            throw new StringIndexOutOfBoundsException(index);
+        if ((offset < 0) || (len < 0) || (offset > str.length - len))
+            throw new StringIndexOutOfBoundsException(
+                "offset " + offset + ", len " + len + ", str.length "
+                + str.length);
+        ensureCapacityInternal(count + len);
+        System.arraycopy(value, index, value, index + len, count - index);
+        System.arraycopy(str, offset, value, index, len);
+        count += len;
+        return this;
+    }
+
+```
+
+String可以直接使用+和+=运算符，这是Java编译器提供的支持，背后，Java编译器一般会生成StringBuilder, +和+=操作会转换为append
+
+传递比较器Comparator给sort方法，体现了程序设计中一种重要的思维方式。将不变和变化相分离，排序的基本步骤和算法是不变的，但按什么排序是变化的，sort方法将不变的算法设计为主体逻辑，而将变化的排序方式设计为参数，允许调用者动态指定，这也是一种常见的设计模式，称为策略模式，不同的排序方式就是不同的策略。
+
+二分查找既可以针对基本类型数组，也可以针对对象数组，对对象数组，也可以传递Comparator，也可以指定查找范围。如果能找到，binarySearch返回找到的元素索引。如果没找到，返回一个负数，这个负数等于-（插入点+1）。插入点表示，如果在这个位置插入没找到的元素，可以保持原数组有序。
+
+多维数组只是一个假象，只有一维数组，只是数组中的每个元素还可以是一个数组，这样就形成二维数组。
+
+```java
+    private static int binarySearch0(long[] a, int fromIndex, int toIndex,
+                                     long key) {
+        int low = fromIndex;
+        int high = toIndex - 1;
+
+        while (low <= high) {
+            int mid = (low + high) >>> 1;
+            long midVal = a[mid];
+
+            if (midVal < key)
+                low = mid + 1;
+            else if (midVal > key)
+                high = mid - 1;
+            else
+                return mid; // key found
+        }
+        return -(low + 1);  // key not found.
+    }
+```
+
+# 8. 泛型与容器
+
+
+
+
+
+
+
 
 
 
