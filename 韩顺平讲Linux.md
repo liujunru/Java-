@@ -57,6 +57,45 @@
 
 ## 2.1 基本介绍
 
-![主目录结构](https://gitee.com/liujunrull/image-blob/raw/master/202206171605987.png)
+![主目录结构](https://gitee.com/liujunrull/image-blob/raw/master/202206171605987.png
+
+## 文件目录类
+
+### cp指令
+
+拷贝指定文件到指定目录。
+
+#### 常用语法
+cp [选项] source dest
+
+-r ：递归复制整个文件夹
+
+#### 案例：
+
+将/home/hello.txt拷贝到/home/bbb目录下：
+
+cp hello.txt /home/bbb
+
+将home/bbb整个目录，拷贝到/opt
+
+cp -r/home/bbb /opt
+
+如果重复拷贝提示是否强制覆盖，可以用\cp直接强制覆盖不提示。
+
+### rm指令
+
+移除文件或目录
+
+#### 基本语法
+
+rm [选项] 要删除的文件或目录
+
+#### 常用选项
+
+-r:递归删除整个文件夹
+
+-f:强制删除不提示
+
+rm -rf /home/bbb [删除整个文件夹，不提示]
 
 
