@@ -59,6 +59,68 @@
 
 ![主目录结构](https://gitee.com/liujunrull/image-blob/raw/master/202206171605987.png
 
+# 3. 指令
+
+## 3.1 vim指令
+     vim xxx.xml:进入某文件,i进入编辑模式，esc退出编辑模式，:wq保存并退出
+
+  ![vim模式切换](https://gitee.com/liujunrull/image-blob/raw/master/202206220911296.png)
+
+     yy复制行，3yy复制3行，p复制
+     dd删除行,3dd删除3行
+     /关键字，查找关键词，输入n查找该关键词的下一个位置
+     :set nu:显示行号，:set nonu:取消行号显示
+     G：跳到末尾一行，gg：跳到首行
+     u：撤销
+     20 shift+g:跳到第20行
+
+## 3.2 登录注销、切换用户
+
+     shutdown 关机
+     reboot 重启
+     关机重启之前先sync，将内存数据同步到磁盘
+
+     用普通用户身份登录时，切换root用户指令 su - root,登出root用户指令logout,最后一个用户登出logout，此时会退出系统
+
+## 3.3 用户管理
+
+在root用户下操作
+
+     useradd xxx：添加用户xxx，未指定组时默认放在同用户名组下
+     useradd -d 指定目录 新的用户名：给新创建的用户指定家目录
+     passwd 用户名:修改指定用户密码
+     userdel 用户名：删除用户，保留家目录，建议保留家用户操作
+     userdel -r 用户名:删除用户及家目录
+     id 用户名：查看用户
+     groupadd xxx:增加组，组类似于角色的概念
+     groupdel xxx:删除组
+     useradd -g 用户组 用户名:增加用户时将他指定组
+     usermod -g 用户组 用户名:修改用户到某用户组
+     init 3:切换centos运行状态3，多用户有网络状态，5为图形化状态
+     systemctl get-default:查看当前默认运行状态
+     systemctl set-default graphical.target:设置默认运行状态为3，multi-user.target为5
+
+  **修改root密码**
+
+  1. 开机界面输入e进入编辑界面
+  2. 找到linux16所在行，在行末尾输入init=/bin/sh,然后Ctrl+x进入单用户模式。
+  3. 在光标闪烁的位置输入mount -o remount,rw /,然后回车
+  4. 在新一行最后输入passwd,然后回车输入密码，再次回车确认密码
+  5. 密码修改成功后，会显示passwd...的样式，证明修改成功
+  6. 在鼠标闪烁位置输入touch /.autorelabel，回车
+  7. 输入exec /sbin/init,回车等待系统自动重启
+
+  ## 3.4 文件目录指令
+
+     ls l:以列的形式查看目录
+     ls a：查看目录包括隐藏文件
+     cd ~：回到自己的家目录
+     cd ..:回到当前目录的上一级目录
+     pwd：显示当前所在目录
+     mkdir -p /home/dog:创建多级目录
+     rmdir:删除空目录
+     rm -rf:删除目录
+     touch 文件名：更新文件状态，比如操作时间
 ## 文件目录类
 
 ### cp指令
