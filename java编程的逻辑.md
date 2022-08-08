@@ -519,6 +519,184 @@ Java中还支持多个上界，多个上界之间以&分隔。如果有上界类
 
 # 9. 列表和队列
 
+## 9.1 剖析ArrayList
+
+### 9.1.1 基本方法
+ArrayList的remove方法
+
+```java
+    public E remove(int index) {
+        rangeCheck(index);
+
+        modCount++;
+        E oldValue = elementData(index);
+
+        int numMoved = size - index - 1;//计算要移动的元素个数
+        if (numMoved > 0)
+            System.arraycopy(elementData, index+1, elementData, index,
+                             numMoved);
+        elementData[--size] = null; // clear to let GC do its work。将size-1,同时释放引用以便原对象被垃圾回收
+
+        return oldValue;
+    }
+```
+
+它也增加了modCount，然后计算要移动的元素个数，从index往后的元素都往前移动一位，实际调用System.arraycopy方法移动元素。elementData[--size] = null；这行代码将size减1，同时将最后一个位置设为null，设为null后不再引用原来对象，如果原来对象也不再被其他对象引用，就可以被垃圾回收。
+
+### 9.1.2 迭代
+
+#### Iterable和Iterator
+
+❑ Iterable表示对象可以被迭代，它有一个方法iterator()，返回Iterator对象，实际通过Iterator接口的方法进行遍历；
+
+❑ 如果对象实现了Iterable，就可以使用foreach语法；
+
+❑ 类可以不实现Iterable，也可以创建Iterator对象。
+
+listIterator()方法返回的迭代器从0开始，而listIterator(int index)方法返回的迭代器从指定位置index开始。
+
+#### 在迭代的中间调用容器的删除方法
+
+发生了并发修改异常，为什么呢？因为迭代器内部会维护一些索引位置相关的数据，要求在迭代过程中，容器不能发生结构性变化，否则这些索引位置就失效了。所谓结构性变化就是添加、插入和删除元素，只是修改元素内容不算结构性变化。
+
+#### 可以使用迭代器的remove方法，可以避免此异常的原理
+
+  - ArrayList中iterator方法的实现
+```java
+public Iterator<E> iterator() {
+        return new Itr();
+    }
+```
+  - 新建了一个Itr对象，Itr是一个成员内部类，实现了Iterator接口，声明为：
+
+```java
+private class Itr implements Iterator<E> 
+```
+    - 它有三个实例成员变量，为：
+
+```java
+int cursor;       // index of next element to return
+int lastRet = -1; // index of last element returned; -1 if no such
+int expectedModCount = modCount;
+```
+
+cursor表示下一个要返回的元素位置，lastRet表示最后一个返回的索引位置，expected-ModCount表示期望的修改次数，初始化为外部类当前的修改次数modCount，回顾一下，成员内部类可以直接访问外部类的实例变量。每次发生结构性变化的时候modCount都会增加，而每次迭代器操作的时候都会检查expectedModCount是否与modCount相同，这样就能检测出结构性变化。
+
+  - 我们来具体看下，它是如何实现Iterator接口中的每个方法的，先看hasNext()，代码为：
+
+```java
+public boolean hasNext() {
+            return cursor != size;
+        }
+```
+  - cursor与size比较，比较直接，看next方法：
+
+```java
+  public E next() {
+            checkForComodification();
+            int i = cursor;
+            if (i >= size)
+                throw new NoSuchElementException();
+            Object[] elementData = ArrayList.this.elementData;
+            if (i >= elementData.length)
+                throw new ConcurrentModificationException();
+            cursor = i + 1;
+            return (E) elementData[lastRet = i];
+        }
+```
+
+   -  首先调用了checkForComodification，它的代码为：
+
+```java
+  final void checkForComodification() {
+            if (modCount != expectedModCount)
+                throw new ConcurrentModificationException();
+        }
+```
+所以，next前面部分主要就是在检查是否发生了结构性变化，如果没有变化，就更新cursor和lastRet的值，以保持其语义，然后返回对应的元素。remove的代码为：
+
+```java
+     public void remove() {
+            if (lastRet < 0)
+                throw new IllegalStateException();
+            checkForComodification();
+
+            try {
+                ArrayList.this.remove(lastRet);
+                cursor = lastRet;
+                lastRet = -1;
+                expectedModCount = modCount;
+            } catch (IndexOutOfBoundsException ex) {
+                throw new ConcurrentModificationException();
+            }
+        }
+```
+
+它调用了ArrayList的remove方法，但同时更新了cursor、lastRet和expectedModCount的值，所以它可以正确删除。不过，需要注意的是，调用remove方法前必须先调用next
+
+#### 迭代器的好处
+
+迭代器表示的是一种**关注点分离**的思想，将数据的**实际组织方式**与数据的**迭代**遍历相分离，是一种常见的设计模式。需要访问容器元素的代码只需要一个Iterator接口的引用，不需要关注数据的实际组织方式，可以使用一致和统一的方式进行访问。
+
+### 9.1.3 ArrayList实现的接口
+
+Java 8对Collection接口添加了几个默认方法，包括removeIf、stream、spliterator等
+
+#### RandomAccess
+
+```java
+public Interface RandomAccess{}
+```
+这种没有任何代码的接口在Java中被称为**标记接口**，用于声明类的一种属性。
+
+主要用于一些通用的算法代码中，它可以根据这个声明而选择效率更高的实现。比如，Collections类中有一个方法binarySearch，在List中进行二分查找，它的实现代码就根据list是否实现了RandomAccess而采用不同的实现机制
+
+```java
+public static <T>
+int  binarySearch(List<? extends Comparable<? super T>> list,T key){
+  if(list instanceof RandomAccess || list.size()<BINARYSEARCH_THRESHOLD>)
+  return Collections.indexedBinarySearch(list,key);
+  else
+  return Collections.iteratorBinarySearch(list,key);
+}
+```
+Arrays中有一个静态方法asList可以返回对应的List,这个方法返回的List，它的实现类并不是本节介绍的ArrayList，而是Arrays类的一个内部类，在这个内部类的实现中，内部用的数组就是传入的数组，没有拷贝，也不会动态改变大小，所以对数组的修改也会反映到List中，对List调用add、remove方法会抛出异常。使用ArrayList完整的方法，应该新建一个ArrayList.
+
+ArrayList还提供了两个public方法，可以控制内部使用的数组大小，一个是**ensureCapacity**,可以确保数组的大小至少为minCapacity，如果不够，会进行扩展。如果已经预知ArrayList需要比较大的容量，调用这个方法可以减少ArrayList内部分配和扩展的次数。另一个是**trimToSize**,它会重新分配一个数组，大小刚好为实际内容的长度。调用这个方法可以节省数组占用的空间。
+
+
+## 9.2 剖析LinkedList
+
+### 9.2.1 用法
+
+  - 队列就类似于日常生活中的各种排队，特点就是**先进先出**，在尾部添加元素，从头部删除元素.
+
+Queue扩展了Collection，它的主要操作有三个：
+
+❑ 在尾部添加元素（add、offer）；
+
+❑ 查看头部元素（element、peek），返回头部元素，但不改变队列；
+
+❑ 删除头部元素（remove、poll），返回头部元素，并且从队列中删除。
+
+每种操作都有两种形式，有什么区别呢？区别在于，对于特殊情况的处理不同。特殊情况是指队列为空或者队列为满，为空容易理解，为满是指队列**有长度大小限制，而且已经占满**了。LinkedList的实现中，队列长度没有限制，但别的Queue的实现可能有。在队列为空时，**element和remove**会抛出异常NoSuchElementException，而**peek和poll**返回特殊值null；在队列为满时，**add**会抛出异常IllegalStateException，而**offer**只是返回false。
+ 
+    - 会抛异常的操作：element remove add
+    - 返回null的操作：peek poll offer
+
+  - 栈也是一种常用的数据结构，与队列相反，它的特点是**先进后出、后进先出**，类似于一个**储物箱**，放的时候是一件件往上放，拿的时候则只能从上面开始拿。
+
+1）push表示入栈，在头部添加元素，栈的空间可能是有限的，如果栈满了，push会抛出异常IllegalStateException。
+
+2）pop表示出栈，返回头部元素，并且从栈中删除，如果栈为空，会抛出异常NoSuch-ElementException。
+
+3）peek查看栈头部元素，不修改栈，如果栈为空，返回null。
+
+栈和队列都是在两端进行操作，**栈只操作头部，队列两端都操作，但尾部只添加、头部只查看和删除**
+
+
+
+
 
 
 
