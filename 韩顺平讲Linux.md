@@ -262,3 +262,13 @@ locate <搜索文件>
 **应用实例**
 
 请用locate指令快速定位hello.txt文件所在目录
+
+### grep指令
+
+grep过滤查找，管道符 | ，表示将前一个命令的处理结果传递给后面的命令处理。
+
+**基本语法**
+
+    - 请在hello.txt文件中，查找"yes"所在行，并且显示行号
+    - grep -n "yes" /home/hello.txt
+    - 
