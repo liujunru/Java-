@@ -694,26 +694,430 @@ Queue扩展了Collection，它的主要操作有三个：
 
 栈和队列都是在两端进行操作，**栈只操作头部，队列两端都操作，但尾部只添加、头部只查看和删除**
 
+## 9.3 剖析ArrayDeque
 
+### 9.3.1 实现原理
 
+ArrayDeque的高效来源于head和tail这两个变量，它们使得物理上简单的从头到尾的数组变为了一个逻辑上循环的数组，避免了在头尾操作时的移动。
 
+**构造方法** 
 
+````
+        public ArrayDeque(int numElements) {
+            allocateElements(numElements);
+        }
+````
+它主要就是在计算应该分配的数组的长度，计算逻辑如下：
 
+1）如果numElements小于8，就是8。
 
+2）在numElements大于等于8的情况下，分配的实际长度是严格大于numElements并且为2的整数次幂的最小数。比如，如果numElements为10，则实际分配16，如果num-Elements为32，则为64。
 
+为什么要为2的幂次数呢？我们待会会看到，这样会使得很多操作的效率很高。为什么要严格大于numElements呢？因为循环数组必须时刻至少留一个空位，tail变量指向下一个空位，为了容纳numElements个元素，至少需要numElements+1个位置。
 
+**ArrayDeque的基本原理**，内部它是一个动态扩展的循环数组，通过head和tail变量维护数组的开始和结尾，数组长度为2的幂次方，使用高效的位操作进行各种判断，以及对head和tail进行维护。
 
+### 9.3.2 ArrayDeque特点分析
 
+ArrayDeque实现了双端队列，内部使用循环数组实现，这决定了它有如下特点。
 
+1）在两端添加、删除元素的效率很高，动态扩展需要的内存分配以及数组复制开销可以被平摊，具体来说，添加N个元素的效率为O(N)。
 
+2）根据元素内容查找和删除的效率比较低，为O(N)。
 
+3）与ArrayList和LinkedList不同，没有索引位置的概念，不能根据索引位置进行操作。
 
+**ArrayDeque和LinkedList都实现了Deque接口，应该用哪一个呢？**
 
+如果只需要Deque接口，从两端进行操作，一般而言，ArrayDeque效率更高一些，应该被优先使用；如果同时需要根据索引位置进行操作，或者经常需要在中间进行插入和删除，则应该选LinkedList。
 
+# 10.Map和Set
 
+## 10.1 剖析HashMap
 
+### 10.1.1 Map接口
 
+````
+        public interface Map<K, V> { //K和V是类型参数，分别表示键(Key)和值(Value)的类型
+            V put(K key, V value); //保存键值对，如果原来有key，覆盖，返回原来的值
+            V get(Object key); //根据键获取值， 没找到，返回null
+            V remove(Object key); //根据键删除键值对， 返回key原来的值，如果不存在，返回null
+            int size(); //查看Map中键值对的个数
+            boolean isEmpty(); //是否为空
+            boolean containsKey(Object key); //查看是否包含某个键
+            boolean containsValue(Object value); //查看是否包含某个值
+            void putAll(Map<? extends K, ? extends V> m); //保存m中的所有键值对到当前Map
+            void clear(); //清空Map中所有键值对
+            Set<K> keySet(); //获取Map中键的集合
+            Collection<V> values(); //获取Map中所有值的集合
+            Set<Map.Entry<K, V>> entrySet(); //获取Map中的所有键值对
+            interface Entry<K, V> { //嵌套接口，表示一条键值对
+                K getKey(); //键值对的键
+                V getValue(); //键值对的值
+                V setValue(V value);
+                boolean equals(Object o);
+                int hashCode();
+            }
+            boolean equals(Object o);
+            int hashCode();
+        }
+        boolean containsValue(Object value);
+        Set<K> keySet();
+````
 
+key和value分别表示键和值，next指向下一个Entry节点，hash是key的hash值，直接存储hash值是为了在比较的时候加快计算
+
+根据哈希值存取对象、比较对象是计算机程序中一种重要的思维方式，它使得存取对象主要依赖于自身Hash值，而不是与其他对象进行比较，存取效率也与集合大小无关，高达O(1)，即使进行比较，也利用Hash值提高比较性能。
+
+## 10.2 剖析HashSet
+
+HashSet内部是用HashMap实现的，它内部有一个HashMap实例变量
+
+## 10.4 剖析TreeMap
+
+TreeMap基于大致平衡的排序二叉树：红黑树，这决定了它有如下特点。
+
+1）没有重复元素。
+
+2）添加、删除元素、判断元素是否存在，效率比较高，为O(log2(N)), N为元素个数。
+
+3）有序，TreeSet同样实现了SortedSet和NavigatableSet接口，可以方便地根据顺序进行查找和操作，如第一个、最后一个、某一取值范围、某一值的邻近元素等。
+
+4）为了有序，TreeSet要求元素实现Comparable接口或通过构造方法提供一个Com-parator对象
+
+## 10.7 剖析EnumMap
+
+主要是因为枚举类型有两个特征：一是它可能的值是有限的且预先定义的；二是枚举值都有一个顺序，这两个特征使得可以更为高效地实现Map接口
+
+## 10.8 剖析EnumSet
+
+之前介绍的Set接口的实现类HashSet/TreeSet，它们内部都是用对应的HashMap/TreeMap实现的，但EnumSet不是，它的实现与EnumMap没有任何关系，而是用极为精简和高效的位向量实现的
+
+# 第11章 堆与优先级队列
+
+堆指的是内存中的区域，保存动态分配的对象，与栈相对应。
+
+## 11.1 堆的概念与算法
+
+堆首先是一棵二叉树，但它是完全二叉树。什么是完全二叉树呢？我们先来看另一个相似的概念：满二叉树。满二叉树是指除了最后一层外，每个节点都有两个孩子，而最后一层都是叶子节点，都没有孩子
+
+![满二叉树](https://gitee.com/liujunrull/image-blob/raw/master/202209191057628.png)
+
+满二叉树一定是完全二叉树，但完全二叉树不要求最后一层是满的，但如果不满，则要求所有节点必须集中在最左边，从左到右是连续的，中间不能有空的
+
+![完全二叉树](https://gitee.com/liujunrull/image-blob/raw/master/202209191059641.png)
+
+完全二叉树有一个重要的特点：给定任意一个节点，可以根据其编号直接快速计算出其父节点和孩子节点编号。如果编号为i，则父节点编号即为i/2，左孩子编号即为2× i，右孩子编号即为2× i+1。比如，对于5号节点，父节点为5/2即2，左孩子为2× 5即10，右孩子为2× 5+1即11。
+
+![完全二叉树编号](https://gitee.com/liujunrull/image-blob/raw/master/202209191101830.png)
+
+**从中间删除元素**
+
+如果需要从中间删除某个节点，与从头部删除一样，都是先用最后一个元素替换待删元素。不过替换后，有两种情况：如果该元素大于某孩子节点，则需向下调整（sift-down）；如果小于父节点，则需向上调整（siftup）。我们来看个例子，删除值为21的节点
+
+![第一步](https://gitee.com/liujunrull/image-blob/raw/master/202209191103297.png)
+
+替换后，6没有子节点，小于父节点12，执行向上调整（siftup）过程，最后结果如图11-17所示。
+
+![中间删除21](https://gitee.com/liujunrull/image-blob/raw/master/202209191104968.png)
+
+将普通无序数组变为堆的过程称为heapify。基本思路是：从最后一个非叶子节点开始，一直往前直到根，对每个节点，执行向下调整（siftdown）。换句话说，是自底向上，先使每个最小子树为堆，然后每对左右子树和其父节点合并，调整为更大的堆，因为每个子树已经为堆，所以调整就是对父节点执行向下调整（siftdown），这样一直合并调整直到根。
+
+堆是一种比较神奇的数据结构，概念上是树，存储为数组，父子有特殊顺序，根是最大值/最小值，构建/添加/删除效率都很高，可以高效解决很多问题。
+
+## 11.2 剖析PriorityQueue
+
+PriorityQueue是优先级队列，它首先实现了**队列接口（Queue）**，与LinkedList类似，它的队列长度也没有限制，与一般队列的区别是，它有**优先级**的概念，每个元素都有优先级，队头的元素永远都是优先级最高的。
+
+优先级出队，内部是用**堆**实现的，有如下特点：
+
+1）实现了优先级队列，最先出队的总是优先级**最高**的，即排序中的第一个。
+
+2）优先级可以有相同的，内部元素不是完全有序的，如果遍历输出，除了第一个，其他没有特定顺序。
+
+3）**查看头部元素的效率很高**，为O(1)，入队、出队效率比较高，为O(log2(N))，构建堆heapify的效率为O(N)。
+
+4）根据值查找和删除元素的效率比较低，为O(N)。
+
+# 12 通用容器类和总结
+
+## 12.2 Collections
+
+交换list中第i个和第j个元素的内容。实现代码为：
+
+```
+        public static void swap(List<? > list, int i, int j) {
+            final List l = list;
+            l.set(i, l.set(j, l.get(i)));
+        }
+```
+
+如果需要实现类似“剪切”和“粘贴”的功能，可以使用rotate()方法。
+
+批量填充固定值
+
+````
+        public static <T> void fill(List<? super T> list, T obj)
+````
+
+批量复制
+
+````
+        public static <T> void copy(List<? super T> dest, List<? extends T> src)
+````
+
+将列表src中的每个元素复制到列表dest的对应位置处，覆盖dest中原来的值，dest的列表长度不能小于src, dest中超过src长度部分的元素不受影响。
+
+emptyList方法返回的是一个静态不可变对象，它可以节省创建新对象的内存和时间开销。
+
+````
+        public static final <T> List<T> emptyList() {
+            return (List<T>) EMPTY_LIST;
+        }
+````
+
+如果返回值只是用于读取，可以使用emptyList方法，但如果返回值还用于写入，则需要新建一个对象。
+
+在Java 9中，可以使用List、Map和Set不带参数的of方法返回一个空的只读容器对象，也就是说，如下两行代码的效果是相同的：
+
+````
+        1. List list = Collections.emptyList();
+        2. List list = List.of();
+````
+
+相比新建容器对象并添加元素，这些方法更为简洁方便，此外，它们的实现更为高效，它们的实现类都针对单一对象进行了优化。比如， singleton方法的代码：
+
+````
+        public static <T> Set<T> singleton(T o) {
+            return new SingletonSet<>(o);
+        }
+````
+
+## 12.3 容器类总结
+
+Queue是Collection的子接口，表示先进先出的队列，在尾部添加，从头部查看或删除。Deque是Queue的子接口，表示更为通用的双端队列，有明确的在头或尾进行查看、添加和删除的方法。普通队列有两个主要的实现类：LinkedList和ArrayDeque。LinkedList基于链表实现，ArrayDeque基于循环数组实现。一般而言，如果只需要Deque接口，Array-Deque的效率更高一些。
+
+#### 12.3.2 数据结构和算法
+
+在容器类中，我们看到了如下数据结构的应用：
+
+1）动态数组：**ArrayList**内部就是动态数组，**HashMap**内部的链表数组也是动态扩展的，**ArrayDeque**和**PriorityQueue**内部也都是动态扩展的数组。
+
+2）链表：**LinkedList**是用双向链表实现的，**HashMap**中映射到同一个链表数组的键值对是通过单向链表链接起来的，**LinkedHashMap**中每个元素还加入到了一个双向链表中以维护插入或访问顺序。
+
+3）哈希表：**HashMap**是用哈希表实现的，HashSet、LinkedHashSet和LinkedHashMap基于HashMap，内部当然也是哈希表。
+
+4）排序二叉树：**TreeMap**是用红黑树（基于排序二叉树）实现的，**TreeSet**内部使用TreeMap，当然也是红黑树，红黑树能保持元素的顺序且综合性能很高。
+
+5）堆：**PriorityQueue**是用堆实现的，堆逻辑上是树，物理上是动态数组，堆可以高效地解决一些其他数据结构难以解决的问题。
+
+6）循环数组：**ArrayDeque**是用循环数组实现的，通过对头尾变量的维护，实现了高效的队列操作。
+
+7）位向量：**EnumSet和BitSet**是用位向量实现的，对于只有两种状态，且需要进行集合运算的数据，使用位向量进行表示、位运算进行处理，精简且高效。
+
+每种数据结构中往往包含一定的算法策略，这种策略往往是一种折中，比如：
+
+1）动态扩展算法：动态数组的扩展策略，一般是指数级扩展的，是在两方面进行平衡，一方面是希望减少内存消耗，另一方面希望减少内存分配、移动和复制的开销。
+
+2）哈希算法：哈希表中键映射到链表数组索引的算法，算法要快，同时要尽量随机和均匀。
+
+3）排序二叉树的平衡算法：排序二叉树的平衡非常重要，红黑树是一种平衡算法， AVL树是另一种平衡算法。平衡算法一方面要保证尽量平衡，另一方面要尽量减少综合开销。
+
+# 第13章 文件基本技术
+
+硬盘的访问延时，相比内存，是很慢的。操作系统和硬盘一般是按**块**批量传输，而不是按字节，以摊销延时开销，块大小一般至少为512字节，即使应用程序只需要文件的一个字节，操作系统也会至少将一个块读进来。一般而言，应尽量减少接触硬盘，接触一次，就一次多做一些事情。对于网络请求和其他输入输出设备，原则都是类似的。
+
+一般读写文件需要两次数据复制，比如读文件，需要先从硬盘复制到操作系统内核，再从内核复制到应用程序分配的内存中。操作系统运行所在的环境和应用程序是不一样的，操作系统所在的环境是内核态，应用程序是用户态，应用程序调用操作系统的功能，需要两次环境的切换，先从用户态切到内核态，再从内核态切到用户态。这种用户态/内核态的切换是有开销的，应尽量减少这种切换。
+
+为了提升文件操作的效率，应用程序经常使用一种常见的策略，即使用**缓冲区**。读文件时，即使目前只需要少量内容，但预知还会接着读取，就一次读取比较多的内容，放到读缓冲区，下次读取时，如果缓冲区有，就直接从缓冲区读，减少访问操作系统和硬盘。写文件时，先写到写缓冲区，写缓冲区满了之后，再一次性调用操作系统写到硬盘。不过，需要注意的是，在写结束的时候，要记住将缓冲区的**剩余内容同步到硬盘**。操作系统自身也会使用缓冲区，不过，应用程序更了解读写模式，恰当使用往往可以有更高的效率。
+
+操作系统操作文件一般有**打开和关闭**的概念。打开文件会在操作系统内核建立一个有关该文件的内存结构，这个结构一般通过一个整数索引来引用，这个索引一般称为**文件描述符**。这个结构是消耗内存的，操作系统能同时打开的文件一般也是有限的，在不用文件的时候，应该记住关闭文件。关闭文件一般会同步缓冲区内容到硬盘，并释放占据的内存结构。
+
+操作系统一般支持一种称为**内存映射文件**的高效的随机读写大文件的方法，将文件直接映射到内存，操作内存就是操作文件。在内存映射文件中，只有访问到的数据才会被实际复制到内存，且数据只会复制一次，被操作系统以及多个应用程序共享。
+
+基本的流按字节读写，没有缓冲区，这不方便使用。Java解决这个问题的方法是使用**装饰器**设计模式，引入了很多装饰类，对基本的流增加功能，以方便使用。一般一个类只关注一个方面，实际使用时，经常会需要多个装饰类。
+
+# 14 常见文件类型处理
+
+压缩一个文件或一个目录
+
+````
+        public static void zip(File inFile, File zipFile) throws IOException {
+            ZipOutputStream out = new ZipOutputStream(new BufferedOutputStream(
+                    new FileOutputStream(zipFile)));
+            try {
+                if(! inFile.exists()) {
+                    throw new FileNotFoundException(inFile.getAbsolutePath());
+                }
+                inFile = inFile.getCanonicalFile();
+                String rootPath = inFile.getParent();
+                if(! rootPath.endsWith(File.separator)) {
+                    rootPath += File.separator;
+                }
+                addFileToZipOut(inFile, out, rootPath);
+            } finally {
+                out.close();
+            }
+        }
+
+                private static void addFileToZipOut(File file, ZipOutputStream out,
+                String rootPath) throws IOException {
+            String relativePath = file.getCanonicalPath().substring(
+                        rootPath.length());
+                if(file.isFile()) {
+                    out.putNextEntry(new ZipEntry(relativePath));
+                    InputStream in = new BufferedInputStream(new FileInputStream(file));
+                    try {
+                        copy(in, out);
+                    } finally {
+                        in.close();
+                    }
+                } else {
+                    out.putNextEntry(new ZipEntry(relativePath + File.separator));
+                    for(File f : file.listFiles()) {
+                        addFileToZipOut(f, out, rootPath);
+                    }
+                }
+            }
+````
+
+使用ZipInputStream解压文件，可以使用类似如下代码：
+
+````
+        public static void unzip(File zipFile, String destDir) throws IOException {
+            ZipInputStream zin = new ZipInputStream(new BufferedInputStream(
+                    new FileInputStream(zipFile)));
+            if(! destDir.endsWith(File.separator)) {
+                destDir += File.separator;
+            }
+            try {
+                ZipEntry entry = zin.getNextEntry();
+                while(entry ! = null) {
+                    extractZipEntry(entry, zin, destDir);
+                    entry = zin.getNextEntry();
+                }
+            } finally {
+                zin.close();
+            }
+        }
+````
+
+调用extractZipEntry处理每个压缩条目，代码为：
+
+````
+        private static void extractZipEntry(ZipEntry entry, ZipInputStream zin,
+                String destDir) throws IOException {
+            if(! entry.isDirectory()) {
+                File parent = new File(destDir + entry.getName()).getParentFile();
+                if(! parent.exists()) {
+                    parent.mkdirs();
+                }
+                  OutputStream entryOut = new BufferedOutputStream(
+                          new FileOutputStream(destDir + entry.getName()));
+                  try {
+                      copy(zin, entryOut);
+                  } finally {
+                      entryOut.close();
+                  }
+              } else {
+                  new File(destDir + entry.getName()).mkdirs();
+              }
+          }
+````
+
+## 14.5 使用Jackson序列化为JSON/XML/MessagePack
+
+#### 引用同一个对象
+
+我们看个简单的例子，有两个类Common和A, A中有两个Common对象，为便于演示，我们将所有属性定义为了public，它们的类定义如下：
+
+````
+        static class Common {
+            public String name;
+        }
+        static class A {
+            public Common first;
+            public Common second;
+        }
+````
+
+有一个A对象，如下所示：
+
+````
+        Common c = new Common();
+        c.name= "common";
+        A a = new A();
+        a.first = a.second = c;
+````
+
+a对象的first和second都指向都一个c对象，不加额外配置，序列化a的代码为：
+
+````
+        ObjectMapper mapper = new ObjectMapper();
+        mapper.enable(SerializationFeature.INDENT_OUTPUT);
+        String str = mapper.writeValueAsString(a);
+        System.out.println(str);
+````
+
+输出为：
+
+````
+        {
+          "first" : {
+            "name" : "abc"
+          },
+          "second" : {
+            "name" : "abc"
+          }
+        }
+````
+
+在反序列化后，first和second将指向不同的对象，如下所示：
+
+````
+        A a2 = mapper.readValue(str, A.class);
+        if(a2.first == a2.second){
+            System.out.println("reference same object");
+        }else{
+            System.out.println("reference different objects");
+        }
+````
+
+输出为：
+
+````
+        reference different objects
+````
+
+那怎样才能保持这种对同一个对象的引用关系呢？可以使用注解@JsonIdentityInfo，对Common类做注解，如下所示：
+
+````
+        @JsonIdentityInfo(
+                generator = ObjectIdGenerators.IntSequenceGenerator.class,
+                property="id")
+        static class Common {
+              public String name;
+          }
+````
+@JsonIdentityInfo中指定了两个属性，property="id"表示在序列化输出中新增一个属性"id"以表示对象的唯一标示，generator表示对象唯一ID的产生方法，这里是使用整数顺序数产生器IntSequenceGenerator。加了这个标记后，序列化输出会变为：
+
+````
+        {
+          "first" : {
+            "id" : 1,
+            "name" : "common"
+          },
+          "second" : 1
+        }
+````
+
+# 15. 并发
+
+## 15.1 线程
+
+#### 为什么调用的是start，执行的却是run方法呢？
+
+start表示启动该线程，使其成为一条单独的执行流，操作系统会分配线程相关的资源，每个线程会有单独的程序执行计数器和栈，操作系统会把这个线程作为一个独立的个体进行调度，分配时间片让它执行，执行的起点就是run方法。
 
 
 
