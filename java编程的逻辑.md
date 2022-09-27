@@ -1129,5 +1129,58 @@ synchronized保护的是对象，对实例方法，保护的是当前实例对�
 
 synchronized有一个重要的特征，它是**可重入**的，也就是说，对同一个执行线程，它在获得了锁之后，在调用其他需要同样锁的代码时，可以直接调用。比如，在一个syn-chronized实例方法内，可以直接调用其他synchronized实例方法。
 
+#### 如何正确地取消/关闭线程
 
+````
+    //Future接口提供了如下方法以取消任务：
+    boolean cancel(boolean mayInterruptIfRunning);
+    //ExecutorService提供了如下两个关闭方法
+    void shutdown();
+    List<Runnable> shutdownNow();
+````
+
+# 16 并发包的基石
+
+````
+        public final boolean compareAndSet(int expect, int update)
+````
+
+compareAndSet是一个非常重要的方法，比较并设置，我们以后将简称为CAS。该方法有两个参数expect和update，以原子方式实现了如下功能：如果当前值等于expect，则更新为update，否则不更新，如果更新成功，返回true，否则返回false。
+
+#### 可重入锁ReentrantLock
+
+Lock接口的主要实现类是ReentrantLock，它的基本用法lock/unlock实现了与syn-chronized一样的语义，包括：
+
+❑ 可重入，一个线程在持有一个锁的前提下，可以继续获得该锁；
+
+❑ 可以解决竞态条件问题；
+
+❑ 可以保证内存可见性。
+
+ReentrantLock有两个构造方法：
+
+        public ReentrantLock()
+        public ReentrantLock(boolean fair)
+
+参数fair表示是否保证公平，不指定的情况下，默认为false，表示不保证公平。所谓公平是指，等待时间最长的线程优先获得锁。保证公平会影响性能，一般也不需要，所以默认不保证，synchronized锁也是不保证公平的
+
+使用显式锁，一定要记得调用unlock。一般而言，应该将lock之后的代码包装到try语句内，在finally语句内释放锁。比如，使用ReentrantLock实现Counter，代码可以为：
+
+        public class Counter {
+            private final Lock lock = new ReentrantLock();
+            private volatile int count;
+            public void incr() {
+                lock.lock();
+                try {
+                    count++;
+                } finally {
+                    lock.unlock();
+                }
+            }
+            public int getCount() {
+                return count;
+            }
+        }
+
+使用tryLock()，可以避免死锁。在持有一个锁获取另一个锁而获取不到的时候，可以释放已持有的锁，给其他线程获取锁的机会，然后重试获取所有锁。
 
