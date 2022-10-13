@@ -1184,3 +1184,402 @@ ReentrantLock有两个构造方法：
 
 使用tryLock()，可以避免死锁。在持有一个锁获取另一个锁而获取不到的时候，可以释放已持有的锁，给其他线程获取锁的机会，然后重试获取所有锁。
 
+# 18. 异步任务执行服务
+
+- ExecutorService有两个关闭方法：shutdown和shutdownNow。区别是，shutdown表示不再接受新任务，但已提交的任务会继续执行，即使任务还未开始执行；shutdownNow不仅不接受新任务，而且会终止已提交但尚未执行的任务，对于正在执行的任务，一般会调用线程的interrupt方法尝试中断，不过，线程可能不响应中断，shutdownNow会返回已提交但尚未执行的任务列表。
+
+- ExecutorService有两组批量提交任务的方法：invokeAll和invokeAny，它们都有两个版本，其中一个限定等待时间。invokeAll等待所有任务完成，返回的Future列表中，每个Future的isDone方法都返回true，不过isDone为true不代表任务就执行成功了，可能是被取消了。invokeAll可以指定等待时间，如果超时后有的任务没完成，就会被取消。而对于invokeAny，**只要有一个任务**在限时内成功返回了，它就会返回该任务的结果，其他任务会被取消；如果没有任务能在限时内成功返回，抛出TimeoutException；如果限时内所有任务都结束了，但都发生了异常，抛出ExecutionException。
+
+- 线程池主要由两个概念组成：一个是任务队列；另一个是工作者线程。工作者线程主体就是一个循环，循环从队列中接受任务并执行，任务队列保存待执行的任务。
+
+线程池的大小主要与4个参数有关：
+
+❑ corePoolSize：核心线程个数。
+
+❑ maximumPoolSize：最大线程个数。
+
+❑ keepAliveTime和unit：空闲线程存活时间。
+
+maximumPoolSize表示线程池中的最多线程数，线程的个数会动态变化，但这是最大值，不管有多少任务，都不会创建比这个值大的线程个数。corePoolSize表示线程池中的核心线程个数，不过，并不是一开始就创建这么多线程，刚创建一个线程池后，实际上并不会创建任何线程。
+
+- 一般情况下，有新任务到来的时候，如果当前线程个数小于**corePoolSiz**，就会创建一个新线程来执行该任务，需要说明的是，即使其他线程现在也是空闲的，也会创建新线程。不过，如果线程个数大于等于corePoolSiz，那就不会立即创建新线程了，它会**先尝试排队**，需要强调的是，它是“尝试”排队，而不是“阻塞等待”入队，如果队列满了或其他原因不能立即入队，它就不会排队，而是检查线程个数是否达到了maximumPoolSize，如果没有，就会继续创建线程，直到线程数达到maximumPoolSize。
+
+- ❑ LinkedBlockingQueue：基于链表的阻塞队列，可以指定最大长度，但默认是无界的。
+
+    ❑ ArrayBlockingQueue：基于数组的有界阻塞队列。
+
+    ❑ PriorityBlockingQueue：基于堆的无界阻塞优先级队列。
+
+    ❑ SynchronousQueue：没有实际存储空间的同步阻塞队列。
+
+如果用的是无界队列，需要强调的是，线程个数最多只能达到corePoolSize，到达core-PoolSize后，新的任务总会排队，参数maximumPoolSize也就没有意义了。对于SynchronousQueue，我们知道，它没有实际存储元素的空间，当尝试排队时，只有正好有空闲线程在等待接受任务时，才会入队成功，否则，总是会创建新线程，直到达到maximumPoolSize。
+
+- 如果队列有界，且maximumPoolSize有限，则当队列排满，线程个数也达到了maxi-mumPoolSize，这时，新任务来了，如何处理呢？此时，会触发线程池的任务**拒绝策略**。
+
+    拒绝策略是可以自定义的，ThreadPoolExecutor实现了4种处理方式。
+
+    1）ThreadPoolExecutor.AbortPolicy：这就是默认的方式，抛出异常。
+
+    2）ThreadPoolExecutor.DiscardPolicy：静默处理，忽略新任务，不抛出异常，也不执行。
+
+    3）ThreadPoolExecutor.DiscardOldestPolicy：将等待时间最长的任务扔掉，然后自己排队。
+
+    4）ThreadPoolExecutor.CallerRunsPolicy：在任务提交者线程中执行任务，而不是交给线程池中的线程执行。它们都是ThreadPoolExecutor的public静态内部类，都实现了RejectedExecutionHandler接口
+
+    拒绝策略只有在队列有界，且maximumPoolSize有限的情况下才会触发。如果队列无界，服务不了的任务总是会排队，但这不一定是期望的结果，因为请求处理队列可能会消耗非常大的内存，甚至引发内存不够的异常。如果队列有界但maxi-mumPoolSize无限，可能会创建过多的线程，占满CPU和内存，使得任何任务都难以完成。所以，在任务量非常大的场景中，让拒绝策略有机会执行是保证系统稳定运行很重要的方面。
+
+- 线程个数小于等于corePoolSize时，我们称这些线程为核心线程，默认情况下。
+
+    ❑ 核心线程不会预先创建，只有当有任务时才会创建。
+
+    ❑ 核心线程不会因为空闲而被终止，keepAliveTime参数不适用于它。
+
+ - 只使用一个线程，使用无界队列LinkedBlockingQueue，线程创建后不会超时终止，该线程顺序执行所有任务。该线程池适用于需要确保所有任务被顺序执行的场合。
+
+- 实际中，应该使用newFixedThreadPool还是newCachedThreadPool呢？在系统负载很高的情况下，newFixedThreadPool可以通过队列对新任务排队，保证有足够的资源处理实际的任务，而newCachedThreadPool会为每个任务创建一个线程，导致创建过多的线程竞争CPU和内存资源，使得任何实际任务都难以完成，这时， newFixedThreadPool更为适用。不过，如果系统负载不太高，单个任务的执行时间也比较短，newCachedThreadPool的效率可能更高，因为任务可以不经排队，直接交给某一个空闲线程。在系统负载可能极高的情况下，两者都不是好的选择，newFixedThreadPool的问题是队列过长，而newCachedThreadPool的问题是线程过多，这时，应根据具体情况自定义ThreadPoolExecutor，传递合适的参数。
+
+#### 线程池的死锁
+
+可以使用newCachedThreadPool创建线程池，让线程数不受限制。另一个解决方法是使用**SynchronousQueue**，它可以避免死锁，怎么做到的呢？对于普通队列，入队只是把任务放到了队列中，而对于SynchronousQueue来说，入队成功就意味着已有线程接受处理，如果入队失败，可以创建更多线程直到maximumPoolSize，如果达到了maximumPoolSize，会触发拒绝机制，不管怎么样，都不会死锁。
+
+ThreadPoolExecutor实现了生产者/消费者模式，工作者线程就是消费者，任务提交者就是生产者，线程池自己维护任务队列。当我们碰到类似生产者/消费者问题时，应该优先考虑直接使用线程池，
+
+# 第19章 同步和协作工具类
+
+## 19.1 读写锁ReentrantReadWriteLock
+
+多个线程的读操作完全可以并行，在读多写少的场景中，让读操作并行可以明显提高性能。怎么让读操作能够并行，又不影响一致性呢？答案是使用读写锁。在Java并发包中，接口ReadWriteLock表示读写锁，主要实现类是可重入读写锁**ReentrantReadWriteLock**。
+
+通过一个ReadWriteLock产生两个锁：一个读锁，一个写锁。读操作使用读锁，写操作使用写锁。需要注意的是，只有“**读-读**”操作是可以并行的，“读-写”和“写-写”都不可以。**只有一个**线程可以进行写操作，在获取写锁时，只有没有任何线程持有任何锁才可以获取到，在持有写锁时，其他任何线程都获取不到任何锁。在没有其他线程持有写锁的情况下，多个线程可以获取和持有读锁。
+
+## 19.2 信号量Semaphore
+
+现实中，资源往往有多个，但每个同时只能被一个线程访问，比如，饭店的饭桌、火车上的卫生间。有的单个资源即使可以被并发访问，但并发访问数多了可能影响性能，所以希望限制并发访问的线程数。还有的情况，与软件的授权和计费有关，对不同等级的账户，限制不同的最大并发访问数。信号量类**Semaphore**就是用来解决这类问题的，它可以**限制对资源的并发访问数**
+
+## 19.3 倒计时门栓CountDownLatch
+
+CountDownLatch。它相当于是一个门栓，一开始是关闭的，所有希望通过该门的线程都需要等待，然后开始倒计时，倒计时变为0后，门栓打开，等待的**所有线程**都可以通过，它是一次性的，打开后就不能再关上了
+
+## 19.4 循环栅栏CyclicBarrier
+
+CyclicBarrier。它相当于是一个栅栏，所有线程在到达该栅栏后都需要等待其他线程，等**所有线程都到达后再一起通过**，它是循环的，可以用作重复的同步。CyclicBarrier特别适用于**并行迭代计算**，每个线程负责一部分计算，然后在栅栏处等待其他线程完成，所有线程到齐后，交换数据和计算结果，再进行下一次迭代。
+CyclicBarrier与CountDownLatch可能容易混淆，我们强调下它们的区别。
+
+1）CountDownLatch的参与线程是有不同角色的，有的负责倒计时，有的在等待倒计时变为0，负责倒计时和等待倒计时的线程都可以有多个，用于不同角色线程间的同步。
+
+2）CyclicBarrier的参与线程角色是一样的，用于同一角色线程间的协调一致。
+
+3）CountDownLatch是一次性的，而CyclicBarrier是可以重复利用的。
+
+## 19.5 理解ThreadLocal
+
+线程本地变量是说，每个线程都有同一个变量的独有拷贝
+
+initialValue用于提供初始值，这是一个受保护方法，可以通过匿名内部类的方式提供，当调用get方法时，如果之前没有设置过，会调用该方法获取初始值，默认实现是返回null。remove删掉当前线程对应的值，如果删掉后，再次调用get，会再调用initialValue获取初始值。
+
+使用场景：日期处理、随机数和上下文信息。
+
+ThreadLocal对象一般都定义为static，以便于引用。
+
+每个线程都有一个Map，对于每个ThreadLocal对象，调用其get/set实际上就是以ThreadLocal对象为键读写当前线程的Map，这样，就实现了每个线程都有自己的独立副本的效果
+
+1）ThreadLocal使得每个线程对同一个变量有自己的独立副本，是实现线程安全、减少竞争的一种方案。
+
+2）ThreadLocal经常用于存储上下文信息，避免在不同代码间来回传递，简化代码。
+
+3）每个线程都有一个Map，调用ThreadLocal对象的get/set实际就是以ThreadLocal对象为键读写当前线程的该Map。
+
+# 第20章 并发总结
+
+## 20.1 线程安全的机制
+
+线程表示一条单独的执行流，每个线程有自己的执行计数器，有自己的栈，但可以共享内存，共享内存是实现线程协作的基础，但共享内存有两个问题，竞态条件和内存可见性，之前章节探讨了解决这些问题的多种思路：
+
+❑ 使用synchronized；
+
+❑ 使用显式锁；
+
+❑ 使用volatile；
+
+❑ 使用原子变量和CAS；
+
+❑ 写时复制；
+
+❑ 使用ThreadLocal。
+
+（1）synchronized
+
+synchronized简单易用，它只是一个关键字，大部分情况下，放到类的方法声明上就可以了，既可以解决竞态条件问题，也可以解决内存可见性问题。需要理解的是，它保护的是对象，而不是代码，只有对同一个对象的synchronized方法调用，synchronized才能保证它们被顺序调用。对于实例方法，这个对象是this；对于静态方法，这个对象是类对象；对于代码块，需要指定哪个对象。另外，需要注意，它不能尝试获取锁，也不响应中断，还可能会死锁。不过，相比显式锁，synchronized简单易用，JVM也可以不断优化它的实现，应该被优先使用。
+
+（2）显式锁
+
+显式锁是相对于synchronized隐式锁而言的，它可以实现synchronized同样的功能，但需要程序员自己创建锁，调用锁相关的接口，主要接口是Lock，主要实现类是Reen-trantLock。相比synchronized，显式锁支持以非阻塞方式获取锁，可以响应中断，可以限时，可以指定公平性，可以解决死锁问题，这使得它灵活得多。在读多写少、读操作可以完全并行的场景中，可以使用读写锁以提高并发度，读写锁的接口是ReadWriteLock，实现类是ReentrantReadWriteLock。
+
+（3）volatile
+
+synchronized和显式锁都是锁，使用锁可以实现安全，但使用锁是有成本的，获取不到锁的线程还需要等待，会有线程的上下文切换开销等。保证安全不一定需要锁。如果共享的对象只有一个，操作也只是进行最简单的get/set操作，set也不依赖于之前的值，那就不存在竞态条件问题，而只有内存可见性问题，这时，在变量的声明上加上volatile就可以了。（
+
+4）原子变量和CAS
+
+使用volatile, set的新值不能依赖于旧值，但很多时候，set的新值与原来的值有关，这时，也不一定需要锁，如果需要同步的代码比较简单，可以考虑原子变量，它们包含了一些以原子方式实现组合操作的方法，对于并发环境中的计数、产生序列号等需求，考虑使用原子变量而非锁。原子变量的基础是CAS，一般的计算机系统都在硬件层次上直接支持CAS指令。通过循环CAS的方式实现原子更新是一种重要的思维。相比synchronized，它是乐观的，而synchronized是悲观的；它是非阻塞式的，而synchronized是阻塞式的。CAS是Java并发包的基础，基于它可以实现高效的、乐观、非阻塞式数据结构和算法，它也是并发包中锁、同步工具和各种容器的基础。
+
+（5）写时复制
+
+之所以会有线程安全的问题，是因为多个线程并发读写同一个对象，如果每个线程读写的对象都是不同的，或者，如果共享访问的对象是只读的，不能修改，那也就不存在线程安全问题了。我们在介绍容器类CopyOnWriteArrayList和CopyOnWriteArraySet时介绍了写时复制技术，写时复制就是将共享访问的对象变为只读的，写的时候，再使用锁，保证只有一个线程写，写的线程不是直接修改原对象，而是新创建一个对象，对该对象修改完毕后，再原子性地修改共享访问的变量，让它指向新的对象。
+
+（6）ThreadLocal
+
+ThreadLocal就是让每个线程，对同一个变量，都有自己的独有副本，每个线程实际访问的对象都是自己的，自然也就不存在线程安全问题了。
+
+## 20.2 线程的协作机制
+
+（1）wait/notify
+
+wait/notify与synchronized配合一起使用，是线程的基本协作机制。每个对象都有一把锁和两个等待队列，一个是锁等待队列，放的是等待获取锁的线程；另一个是条件等待队列，放的是等待条件的线程，wait将自己加入条件等待队列，notify从条件等待队列上移除一个线程并唤醒，notifyAll移除所有线程并唤醒。需要注意的是，wait/notify方法只能在synchronized代码块内被调用，调用wait时，线程会释放对象锁，被notify/notifyAll唤醒后，要重新竞争对象锁，获取到锁后才会从wait调用中返回，返回后，不代表其等待的条件就一定成立了，需要重新检查其等待的条件。wait/notify方法看上去很简单，但往往难以理解wait等的到底是什么，而notify通知的又是什么，只能有一个条件等待队列，这也是wait/notify机制的局限性，这使得对于等待条件的分析变得复杂
+
+（2）显式条件
+
+显式条件与显式锁配合使用，与wait/notify相比，可以支持多个条件队列，代码更为易读，效率更高。使用时注意不要将signal/signalAll误写为notify/notifyAll。
+
+（3）线程的中断
+
+Java中取消/关闭一个线程的方式是中断。中断并不是强迫终止一个线程，它是一种协作机制，是给线程传递一个取消信号，但是由线程来决定如何以及何时退出，线程在不同状态和IO操作时对中断有不同的反应。作为线程的实现者，应该提供明确的取消/关闭方法，并用文档清楚描述其行为；作为线程的调用者，应该使用其取消/关闭方法，而不是贸然调用interrupt。
+
+（4）协作工具类
+
+除了基本的显式锁和条件，针对常见的协作场景，Java并发包提供了多个用于协作的工具类。信号量类Semaphore用于限制对资源的并发访问数。倒计时门栓CountDownLatch主要用于不同角色线程间的同步，比如在裁判/运动员模式中，裁判线程让多个运动员线程同时开始，也可以用于协调主从线程，让主线程等待多个从线程的结果。倒计时门栓CountDownLatch主要用于不同角色线程间的同步，比如在裁判/运动员模式中，裁判线程让多个运动员线程同时开始，也可以用于协调主从线程，让主线程等待多个从线程的结果。循环栅栏CyclicBarrier用于同一角色线程间的协调一致，所有线程在到达栅栏后都需要等待其他线程，等所有线程都到达后再一起通过，它是循环的，可以用作重复的同步。
+
+（5）阻塞队列
+
+对于最常见的生产者/消费者协作模式，可以使用阻塞队列，阻塞队列封装了锁和条件，生产者线程和消费者线程只需要调用队列的入队/出队方法就可以了，不需要考虑同步和协作问题。阻塞队列有普通的先进先出队列，包括基于数组的ArrayBlockingQueue和基于链表的LinkedBlockingQueue/LinkedBlockingDeque，也有基于堆的优先级阻塞队列PriorityBlock-ingQueue，还有可用于定时任务的延时阻塞队列DelayQueue，以及用于特殊场景的阻塞队列SynchronousQueue和LinkedTransferQueue。
+
+（6）Future/FutureTask
+
+在常见的主从协作模式中，主线程往往是让子线程异步执行一项任务，获取其结果。手工创建子线程的写法往往比较麻烦，常见的模式是使用异步任务执行服务，不再手工创建线程，而只是提交任务，提交后马上得到一个结果，但这个结果不是最终结果，而是一个Future。Future是一个接口，主要实现类是FutureTask。Future封装了主线程和执行线程关于执行状态和结果的同步，对于主线程而言，它只需要通过Future就可以查询异步任务的状态、获取最终结果、取消任务等，不需要再考虑同步和协作问题。
+
+# 第21章 反射
+
+## 21.1 Class类
+
+### 1．名称信息
+
+Class有如下方法，可以获取与名称有关的信息
+
+        public String getName()
+        public String getSimpleName()
+        public String getCanonicalName()
+        public Package getPackage()
+
+![](https://gitee.com/liujunrull/image-blob/raw/master/202210111116056.png)
+
+### 2．字段信息
+
+类中定义的静态和实例变量都被称为字段，用类Field表示，位于包java.lang.reflect下
+
+        //返回所有的public字段，包括其父类的，如果没有字段，返回空数组
+        public Field[] getFields()
+        //返回本类声明的所有字段，包括非public的，但不包括父类的
+        public Field[] getDeclaredFields()
+        //返回本类或父类中指定名称的public字段，找不到抛出异常NoSuchFieldException
+        public Field getField(String name)
+        //返回本类中声明的指定名称的字段，找不到抛出异常NoSuchFieldException
+        public Field getDeclaredField(String name)
+
+        //获取字段的名称
+        public String getName()
+        //判断当前程序是否有该字段的访问权限
+        public boolean isAccessible()
+        //flag设为true表示忽略Java的访问检查机制，以允许读写非public的字段
+        public void setAccessible(boolean flag)
+        //获取指定对象obj中该字段的值
+        public Object get(Object obj)
+        //将指定对象obj中该字段的值设为value
+        public void set(Object obj, Object value)
+
+在get/set方法中，对于静态变量，obj被忽略，可以为null，如果字段值为基本类型， get/set会自动在基本类型与对应的包装类型间进行转换；对于private字段，直接调用get/set会抛出非法访问异常IllegalAccessException，应该先调用setAccessible(true)以关闭Java的检查机制
+
+### 3．方法信息
+
+        //返回所有的public方法，包括其父类的，如果没有方法，返回空数组
+        public Method[] getMethods()
+        //返回本类声明的所有方法，包括非public的，但不包括父类的
+        public Method[] getDeclaredMethods()
+        //返回本类或父类中指定名称和参数类型的public方法，
+        //找不到抛出异常NoSuchMethodException
+        public Method getMethod(String name, Class<? >... parameterTypes)
+        //返回本类中声明的指定名称和参数类型的方法，找不到抛出异常NoSuchMethodException
+        public Method getDeclaredMethod(String name, Class<? >... parameterTypes)
+        //获取方法的名称
+        public String getName()
+        //flag设为true表示忽略Java的访问检查机制，以允许调用非public的方法
+        public void setAccessible(boolean flag)
+        //在指定对象obj上调用Method代表的方法，传递的参数列表为args
+        public Object invoke(Object obj, Object... args) throws
+            IllegalAccessException, Illegal-ArgumentException, InvocationTargetException
+
+### 4．创建对象和构造方法
+
+        public T newInstance() throws InstantiationException, IllegalAccessException
+
+它会调用类的默认构造方法（即无参public构造方法），如果类没有该构造方法，会抛出异常InstantiationException。
+
+newInstance只能使用默认构造方法。Class还有一些方法，可以获取所有的构造方法：
+
+        //获取所有的public构造方法，返回值可能为长度为0的空数组
+        public Constructor<? >[] getConstructors()
+        //获取所有的构造方法，包括非public的
+        public Constructor<? >[] getDeclaredConstructors()
+        //获取指定参数类型的public构造方法，没找到抛出异常NoSuchMethodException
+        public Constructor<T> getConstructor(Class<? >... parameterTypes)
+        //获取指定参数类型的构造方法，包括非public的，没找到抛出异常NoSuchMethodException
+        public Constructor<T> getDeclaredConstructor(Class<? >... parameterTypes)
+
+类Constructor表示构造方法，通过它可以创建对象，方法为：
+
+        public T newInstance(Object ... initargs) throws InstantiationException,
+        IllegalAccessException, IllegalArgumentException, InvocationTargetException
+
+### 5．类型检查和转换
+
+我们之前介绍过instanceof关键字，它可以用来判断变量指向的实际对象类型。instanceof后面的类型是在代码中确定的，如果要检查的类型是动态的，可以使用Class类的如下方法：
+
+        public native boolean isInstance(Object obj)
+
+        Class cls = Class.forName("java.util.ArrayList");
+        if(cls.isInstance(list)){
+            System.out.println("array list");
+        }
+
+强制转换到的类型是在写代码时就知道的。如果是动态的，可以使用Class的如下方法：
+
+        public T cast(Object obj)
+
+        public static <T> T toType(Object obj, Class<T> cls){
+        return cls.cast(obj);
+    }
+
+isInstance/cast描述的都是对象和类之间的关系，Class还有一个方法，可以判断Class之间的关系：
+
+        //检查参数类型cls能否赋给当前Class类型的变量
+        public native boolean isAssignableFrom(Class<? > cls);
+
+### 6．类的加载
+
+Class有两个静态方法，可以根据类名加载类：
+
+        public static Class<? > forName(String className)
+        public static Class<? > forName(String name, boolean initialize,
+            ClassLoader loader)
+ClassLoader表示类加载器，第24章会进一步介绍，initialize表示加载后，是否执行类的初始化代码（如static语句块）。第一个方法中没有传这些参数，相当于调用：
+
+        Class.forName(className, true, currentLoader)
+    
+currentLoader表示加载当前类的ClassLoader。
+
+基本类型不支持forName方法
+
+反射虽然是灵活的，但一般情况下，并不是我们优先建议的，主要原因是：1）反射更容易出现运行时错误，使用显式的类和接口，编译器能帮我们做类型检查，减少错误，但使用反射，类型是运行时才知道的，编译器无能为力。2）反射的性能要低一些，在访问字段、调用方法前，反射先要查找对应的Field/Method，要慢一些。
+
+# 第22章 注解
+
+### 框架和库的注解
+
+声明式编程风格，在这种风格中，程序都由三个组件组成：❑ 声明的关键字和语法本身。❑ 系统/框架/库，它们负责解释、执行声明式的语句。❑ 应用程序，使用声明式风格写程序。
+
+### 创建注解
+
+        @Target(ElementType.METHOD)
+        @Retention(RetentionPolicy.SOURCE)
+        public @interface Override {
+        }
+
+**@Target**
+
+表示注解的目标，@Override的目标是方法（ElementType.METHOD）。ElementType是一个枚举，主要可选值有：
+
+❑ TYPE：表示类、接口（包括注解），或者枚举声明；
+
+❑ FIELD：字段，包括枚举常量；
+
+❑ METHOD：方法；
+
+❑ PARAMETER：方法中的参数；
+
+❑ CONSTRUCTOR：构造方法；
+
+❑ LOCAL_VARIABLE：本地变量；
+
+❑ MODULE：模块（Java 9引入的）。
+
+目标可以有**多个**，用{}表示，比如@SuppressWarnings的@Target就有多个。如果没有声明@Target，默认为适用于**所有类型**。
+
+**@Retention**
+
+表示注解信息保留到什么时候，取值只能有一个，类型为RetentionPolicy，它是一个枚举，有三个取值。
+
+❑ SOURCE：只在**源代码**中保留，编译器将代码编译为字节码文件后就会丢掉。
+
+❑ CLASS：保留到**字节码**文件中，但Java虚拟机将class文件加载到内存时不一定会在内存中保留。
+
+❑ RUNTIME：一直保留到**运行**时。
+
+如果没有声明@Retention，则默认为**CLASS**。
+
+可以为注解定义一些参数，定义的方式是在注解内定义一些方法
+
+注解内参数的类型不是什么都可以的，合法的类型有基本类型、String、Class、枚举、注解，以及这些类型的数组。
+
+参数定义时可以使用default指定一个默认值
+
+        @Target({ METHOD, CONSTRUCTOR, FIELD })
+        @Retention(RUNTIME)
+        @Documented
+        public @interface Inject {
+            boolean optional() default false;
+        }
+
+# 第23章 类加载机制
+
+## 24.1 类加载的基本机制和过程
+
+负责加载类的类就是类加载器，它的输入是完全限定的类名，输出是Class对象。类加载器不是只有一个，一般程序运行时，都会有三个（适用于Java 9之前，Java 9引入了模块化，基本概念是类似的，但有一些变化，限于篇幅，就不探讨了）。
+
+1）启动类加载器（Bootstrap ClassLoader）：这个加载器是Java虚拟机实现的一部分，不是Java语言实现的，一般是C++实现的，它负责加载Java的基础类，主要是<JAVA_HOME>/lib/rt.jar，我们日常用的Java类库比如String、ArrayList等都位于该包内。
+
+2）扩展类加载器（Extension ClassLoader）：这个加载器的实现类是sun.misc.Laun-cher$ExtClassLoader，它负责加载Java的一些扩展类，一般是<JAVA_HOME>/lib/ext目录中的jar包。
+
+3）应用程序类加载器（Application ClassLoader）：这个加载器的实现类是sun.misc.Launcher$AppClassLoader，它负责加载应用程序的类，包括自己写的和引入的第三方法类库，即所有在类路径中指定的类。
+
+Application ClassLoader的父亲是Extension ClassLoader, Extension的父亲是Bootstrap ClassLoader。注意不是父子继承关系，而是**父子委派**关系，子ClassLoader有一个变量**parent**指向父ClassLoader，在子Class-Loader加载类时，一般会首先通过父ClassLoader加载，具体来说，在加载一个类时，基本过程是：
+
+1）判断是否已经加载过了，加载过了，直接返回Class对象，一个类只会被一个Class-Loader加载一次。
+
+2）如果没有被加载，先让父ClassLoader去加载，如果加载成功，返回得到的Class对象。
+
+3）在父ClassLoader没有加载成功的前提下，自己尝试加载类。
+
+“双亲委派”模型，即优先让父ClassLoader去加载。为什么要先让父ClassLoader去加载呢？这样，可以避免**Java类库被覆盖**的问题。比如，用户程序也定义了一个类java.lang.String，通过双亲委派，java.lang.String只会被Bootstrap ClassLoader加载，避免自定义的String覆盖Java类库的定义。
+
+“双亲委派”虽然是一般模型，但也有一些例外，比如：
+
+1）**自定义的加载顺序**：尽管不被建议，自定义的ClassLoader可以不遵从“双亲委派”这个约定，不过，即使不遵从，以java开头的类也不能被自定义类加载器加载，这是由Java的安全机制保证的，以避免混乱。
+
+2）**网状加载顺序**：在OSGI框架和Java 9模块化系统中，类加载器之间的关系是一个网，每个模块有一个类加载器，不同模块之间可能有依赖关系，在一个模块加载一个类时，可能是从自己模块加载，也可能是委派给其他模块的类加载器加载。
+
+3）**父加载器委派给子加载器加载**：典型的例子有JNDI服务（Java Naming and DirectoryInterface），它是Java企业级应用中的一项服务，具体我们就不介绍了。
+
+## 24.2 自定义ClassLoader
+
+自定义Class-Loader是Tomcat实现应用隔离、支持JSP、OSGI实现动态模块化的基础。
+
+继承类ClassLoader，重写findClass就可以了
+
+不把BASE_DIR放到classpath中，而是使用MyClassLoader加载，还有一个很大的好处，那就是可以创建多个MyClassLoader，对同一个类，每个MyClassLoader都可以加载一次，得到同一个类的不同Class对象
+
+1）可以实现隔离。一个复杂的程序，内部可能按模块组织，不同模块可能使用同一个类，但使用的是不同版本，如果使用同一个类加载器，它们是无法共存的，不同模块使用不同的类加载器就可以实现隔离，Tomcat使用它隔离不同的Web应用，OSGI使用它隔离不同模块。
+
+2）可以实现热部署。使用同一个ClassLoader，类只会被加载一次，加载后，即使class文件已经变了，再次加载，得到的也还是原来的Class对象，而使用MyClassLoader，则可以先创建一个新的ClassLoader，再用它加载Class，得到的Class对象就是新的，从而实现动态更新
+
+
+
+
