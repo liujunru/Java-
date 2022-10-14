@@ -1580,6 +1580,29 @@ Application ClassLoader的父亲是Extension ClassLoader, Extension的父亲是B
 
 2）可以实现热部署。使用同一个ClassLoader，类只会被加载一次，加载后，即使class文件已经变了，再次加载，得到的也还是原来的Class对象，而使用MyClassLoader，则可以先创建一个新的ClassLoader，再用它加载Class，得到的Class对象就是新的，从而实现动态更新
 
+# 25.函数式编程
+
+## lambda表达式
+
+        File[] files = f.listFiles((File dir, String name) -> name.endsWith(".txt"));
+
+没有括号的时候，主体代码是一个表达式，这个表达式的值就是函数的返回值，结尾不能加分号，也不能加return语句
+
+        List<String> names = map(students, Student::getName);
+Student::getName这种写法是Java 8引入的一种新语法，称为方法引用。它是Lambda表达式的一种简写方法，由：：分隔为两部分，前面是类名或变量名，后面是方法名。
+
+## 函数式数据处理
+
+实际上，调用filter()和map()都不会执行任何实际的操作，它们只是在构建操作的流水线，调用collect才会触发实际的遍历执行，在一次遍历中完成过滤、转换以及收集结果的任务。
+
+像filter和map这种不实际触发执行、用于构建流水线、返回Stream的操作称为中间操作（intermediate operation），而像collect这种触发实际执行、返回具体结果的操作称为终端操作（terminal operation）
+
+流定义了很多数据处理的基本函数，对于一个具体的数据处理问题，解决的主要思路就是组合利用这些基本函数，以声明式的方式简洁地实现期望的功能，这种思路就是函数式数据处理思维，相比直接利用容器类API的命令式思维，思考的层次更高。
+
+Stream API的这种思路也不是新发明，它与数据库查询语言SQL是很像的，都是声明式地操作集合数据，很多函数都能在SQL中找到对应，
+
+Stream API也与各种基于Unix系统的管道命令类似。熟悉Unix系统的都知道，Unix有很多命令，大部分命令只是专注于完成一件事情，但可以通过管道的方式将多个命令链接起来，完成一些复杂的功能
+
 
 
 
