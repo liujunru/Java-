@@ -9,6 +9,47 @@
 
 ![](https://gitee.com/liujunrull/image-blob/raw/master/202211141622486.png)
 
+### go语言变量
+
+指定变量类型时，如果没有初始化，则变量默认为**零值**
+
+- 数值类型（包括complex64/128）为 0
+
+- 布尔类型为 false
+
+- 字符串为 ""（空字符串）
+
+- 以下几种类型为 nil：
+
+````go
+var a *int
+var a []int
+var a map[string] int
+var a chan int
+var a func(string) int
+var a error // error 是接口
+````
+
+
+````go
+var f string = "Runoob" 简写为 f := "Runoob"：
+````
+
+
+你可以通过&i来获取变量 i 的内存地址，例如：0xf840000040（每次的地址都可能不一样）。
+
+### go语言常量
+
+iota，特殊常量，可以认为是一个可以被编译器修改的常量。
+
+iota 在 **const**关键字出现时将被重置为 0(const 内部的第一行之前)，const 中每新增一行常量声明将使 iota 计数一次(iota 可理解为 const 语句块中的行索引)。
+
+### go语言运算符
+
+![](https://gitee.com/liujunrull/image-blob/raw/master/202211142128518.png)
+
+Go 没有三目运算符，所以不支持 ?: 形式的条件判断。
+
 ### go语言循环语句
 
 
