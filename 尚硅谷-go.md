@@ -443,17 +443,17 @@ func main(){
 2&3
 2的补码 0000 0010
 3的补码 0000 0011
-2&3     0000 0010 =》2
+2&3     0000 0010 => 2
 
 2|3
 2的补码 0000 0010
 3的补码 0000 0011
-2|3    0000 0011 =》3
+2|3    0000 0011 => 3
 
 2^3
 2的补码 0000 0010
 3的补码 0000 0011
-2^3     0000 0001 =》1
+2^3     0000 0001 => 1
 
 -2^2
 
@@ -461,9 +461,9 @@ func main(){
 -2的反码 1111 1101
 -2的补码 1111 1110
 2的补码  0000 0010
--2^2     1111 1100（补码）
-         1111 1011（反码）
-         1000 0100（原码）=》-4
+-2^2     1111 1100(补码)
+         1111 1011(反码)
+         1000 0100(原码) => -4
 
 ````
 
@@ -485,7 +485,7 @@ golang支持在if中，直接定义一个变量，比如下面
 
 ````go
 if age := 20; age > 18 {
-    fmt.Println（"你已年满18！")
+    fmt.Println("你已年满18！")
 }
 ````
 ### 双分支
@@ -770,3 +770,473 @@ func main(){
 
 - 文件的包名通常和文件所在的文件夹名一致，一般为小写字母
 - 在import包时，路径从$GOPATCH的src下开始，不用带src，编译器会自动从src下开始导入
+- 在同一个包下，不能有相同的函数名（也不能有相同的全局变量名）。否则报重复定义 ->没有 重载
+
+**函数细节**
+
+- 基本数据类型和数组默认都是值传递，即进行值拷贝。在函数内修改，不会影响到原来的值
+- 如果希望函数内的变量能修改函数外的变量，可以传入变量的地址&，函数内以指针的方式操作变量，效果上看类似引用。
+- 在go中，函数也是一种数据类型，可以赋值给一个变量，则该变量就是一个函数类型的变量了。通过该变量可以堆函数调用
+
+````go
+package main
+import(
+	"fmt"
+) 
+
+func getSum(n1 int,n2 int) int {
+	return n1 + n2
+}
+func myFun(funvar func(int, int) int, num1 int, num2 int) int {
+	return funvar(num1, num2)
+}
+func main(){
+	a := getSum
+	fmt.Printf("a的类型%T，getSum类型是%T\n", a,getSum)
+	
+	res := a(10,40)
+	fmt.Println("res=", res)
+
+	//a的类型func(int, int) int，getSum类型是func(int, int) int
+	//res= 50
+
+	res2 := myFun(getSum, 50, 60)
+	fmt.Println("res2=", res2)//res2= 110
+}
+````
+
+- go支持自定义数据类型
+
+        基本语法：type 自定义数据类型名 数据类型
+        案例：type myInt int //这时myInt等价int来使用
+              type mySum func(int,int) int//这时mySum等价一个函数类型func(int,int)
+
+    ````go
+    package main
+    import(
+        "fmt"
+    ) 
+
+    func getSum(n1 int,n2 int) int {
+        return n1 + n2
+    }
+    func myFun(funvar func(int, int) int, num1 int, num2 int) int {
+        return funvar(num1, num2)
+    }
+    func main(){
+        //给int取了别名，在go中myInt和int虽然都是int类型，但是go
+        //认为myInt和int是两个类型
+        type myInt int
+        var num1 myInt
+
+        var num2 int
+        num1 = 40
+        //num2 = num1//报错
+        fmt.Println("num1=", num1)//num1= 40 
+    }
+    ````
+
+- 支持对函数返回值命名
+
+    ````go
+    func getSumAndSub(n1 int,n2 int) (sum int, sub int){
+        sum = n1 + n2
+        sub = n1 - n2
+        return 
+    }
+    ````
+
+- go支持可变参数，放在形参列表的最后
+
+    ````
+    func sum(args... int) sum int{}
+    ````
+
+args是slice，通过args[index]可以访问到各个值
+
+### init函数
+
+每个源文件都可以包含一个init函数，该函数会在main函数执行前，被go运行框架调研，也就是说init会在main函数前被调用。
+
+**注意**
+
+- 如果一个文件同时包含全局变量定义，init函数和main函数，则执行的流程是变量定义->init函数->main函数
+- init函数主要用于初始化工作
+
+### 匿名函数
+
+如果我们某个函数只是希望使用一次，可以考虑使用匿名函数，匿名函数也可以实现多次调用
+
+ - 使用方式1
+
+在定义匿名函数时就直接调用，这种调用只能使用一次
+
+````go
+package main
+import(
+	"fmt"
+) 
+func main(){
+	res1 := func (n1 int, n2 int) int {
+		return n1 + n2
+	}(10,20)
+
+	fmt.Println("res1=", res1)//res1= 30
+}
+````
+
+- 使用方式2
+
+将匿名函数赋给一个变量（函数变量），再通过该变量来调用匿名函数。
+
+````go
+    a := func (n1 int, n2 int) int {
+		return n1 + n2
+	}
+
+	res2 := a(10, 30)
+
+	fmt.Println("res2=", res2)//res2= 40
+````
+
+
+- 全局匿名函数
+
+如果将匿名函数赋给一个全局变量，那么这个匿名函数就成为一个全局匿名函数，可以在程序有效
+
+````go
+    var (
+        Fun1 = func (n1 int, n2 int) int {
+            return n1 * n2
+        }
+    )
+
+	res4 := Fun1(10, 30)
+	fmt.Println("res4=", res4)//res4= 300
+````
+
+### 闭包
+
+闭包就是一个函数和与其相关的引用环境组合的一个整体（实体）
+
+````go
+package main
+import(
+	"fmt"
+) 
+
+func AddUpper() func (int) int {
+	var n int = 10
+	var str = "hello"
+	return func (x int) int {
+		n = n + x
+		str += "a"
+		fmt.Println("str=", str)
+		return n
+	}
+}
+func main(){
+	f := AddUpper()
+	fmt.Println(f(1))
+	fmt.Println(f(2))
+	fmt.Println(f(3))
+	// str= helloa
+	// 11
+	// str= helloaa
+	// 13
+	// str= helloaaa
+	// 16
+
+}
+````
+
+        var n int = 10
+        var str = "hello"
+        return func (x int) int {
+            n = n + x
+            str += "a"
+            fmt.Println("str=", str)
+            return n
+        }
+
+- 此匿名函数和引用到函数外的n str形成一个整体，构成闭包
+- 可以这样理解，闭包是类，函数时操作，n是字段。函数和他使用到的n str构成闭包
+- 当我们返回调用f函数时，因为n是初始化一次，因此每调用一次就 进行累计
+
+### defer
+
+在函数中，程序员经常需要创建资源，比如数据库连接、文件句柄、锁等，为了在函数执行完毕后，及时的释放资源，go的设计者提供了defer（延时机制）
+
+````go
+package main
+import(
+	"fmt"
+) 
+
+func sum(n1 int,n2 int) int {
+	defer fmt.Println("ok1 n1=", n1)
+	defer fmt.Println("ok2 n2=", n2)
+
+	n1++
+	n2++
+
+	res := n1 + n2
+	fmt.Println("ok3 res=", res)
+	return res
+}
+func main(){
+	res := sum(10,20)
+	fmt.Println("res=", res)
+	// ok3 res= 32
+	// ok2 n2= 20
+	// ok1 n1= 10
+	// res= 32
+}
+````
+
+**注意**
+
+- 当执行到defer时，暂时不执行，会将defer后面的语句压入到独立的栈（defer栈）
+- 当函数执行完毕后，再从defer栈中，按照先入后出的方式出栈，执行
+- defer将语句放入到栈时，也会将相关的值拷贝同时入栈。
+
+### 函数参数的传递方式
+
+**值类型**
+
+基本数据类型int系列，float系列，bool，string、数组和结构体struct
+
+**引用类型**
+
+指针、slice切片、map、管道chan、interface等
+
+#### 变量作用域
+
+- 函数内部声明/定义的变量叫局部变量，作用于仅限于函数内部
+- 函数外部声明/定义的变量叫全局变量，作用于在整个包都有效。如果首字母是大写，则作用域在整个程序有效
+
+### go字符串函数
+
+- 统计字符串长度，按字节len(str)
+- 字符串便利，同时处理有中文的问题r := []rune(str)
+- 字符串转整数：n,err := strconv.Atoi("12")
+- 整数转字符串str = strconv.Itoa(123456)
+- 字符串转[]byte:var byte = []byte("hello go")
+- []byte转字符串：str = string([]byte{97,98,99})
+- 10进制转2 8 16进制：str = strconv.FormaInt(123,2)
+- 查找子串是否在指定的字符串中：strings.Contains("ceheee","e")
+- 统计一个字符串有几个指定的子串：strings.Count("ceheee","e")
+- 不区分大小写的字符串比较：fmt.Println(strings.EuqalFold("abc","Abc))//true
+- 返回子串在字符串中第一个出现的index值，如果没有返回-1:strings.Index("Nlsabc","abc")//4
+- 返回子串在字符串最后一次出现的index，如果没有返回-1：strings.LastIndex("golang","go")
+- 将指定的子串替换成另外一个子串：strings.Replace("gogohello","go","go语言",n),n指定替换几个，n=1表示全部替换
+- 按照指定的某个字符，为分割表示，将一个字符串拆分为字符串数组：strings.Splot("helloworld,ok",",")
+- 将字符串的字母进行大小写的转换：strings.ToLower("Go")转小写；strings.ToUpper("Go")转大写
+- 将字符串作用两边的空格去掉：strings.TrimSpace(" tn m jhk  f ")
+- 将字符串左右两边指定的字符去掉：strings.Trim("!hello!","!")
+- 将字符串左边指定的字符去掉：strings.TrimLeft("!hello","!")
+- 将字符串右边指定的字符去掉：strings.TrimRight("hello!","!")
+- 判断字符串是否以指定的字符串开头：strings.HasPrefix("ftp://192.168.88.25","ftp")
+- 判断字符串是否以指定的字符串结尾：strings.HasSuffix("adc.jpg","jpg")
+
+### 时间和日期函数
+
+需要导入time包
+
+````go
+package main
+import(
+	"fmt"
+	"time"
+) 
+func main(){
+	//获取当前时间
+	now := time.Now();
+	fmt.Printf("now=%v now type=%T\n", now, now)
+	//now=2022-12-06 19:21:08.279572 +0800 CST m=+0.001794201 now type=time.Time
+
+	//通过now可以获取到年月日，时分秒
+	fmt.Printf("年=%v\n", now.Year())
+	fmt.Printf("月=%v\n", now.Month())
+	fmt.Printf("月=%v\n", int(now.Month()))
+	fmt.Printf("日=%v\n", now.Day())
+	fmt.Printf("时=%v\n", now.Hour())
+	fmt.Printf("分=%v\n", now.Minute())
+	fmt.Printf("秒=%v\n", now.Second())
+	// 年=2022
+	// 月=December
+	// 月=12
+	// 日=6
+	// 时=19
+	// 分=25
+	// 秒=58
+
+	//格式化日期时间
+	fmt.Printf("当前年月日 %d-%d-%d %d:%d:%d \n",now.Year(),now.Month(),
+	now.Day(),now.Hour(),now.Minute(),now.Second())
+	//当前年月日 2022-12-6 19:28:54
+
+	//格式化日期时间的第二种方式
+	fmt.Printf(now.Format("2006-01-02 15:04:05"))
+	fmt.Println()
+	//2022-12-06 19:30:52
+	fmt.Printf(now.Format("2006-01-02"))
+	fmt.Println()
+	//2022-12-06
+	fmt.Printf(now.Format("15:04:05"))
+	fmt.Println()
+	//19:30:52
+}
+````
+
+- 时间的常量
+
+        const(
+            Nanosecond Duration//纳秒
+            Microsecond //微秒
+            Millisecond //毫秒
+            Second //秒 
+            Minute //分钟 
+            Hour //小时 
+        )
+        //获得1000毫秒
+        1000 * time.Millisecond
+
+- 休眠
+
+        func sleep(d Duration)
+
+        案例：time.Sleep(100 * time.Millisecond)//休眠100毫秒
+
+- 获取时间戳：time.Now().Unix()
+
+### 内置函数（buildin)
+
+golang设计者为了编程方便，提供了一些函数可以直接使用，我们称为go的内置函数
+
+- len:用来求长度
+- new:用来分配内存，主要用来分配值类型，比如int、float32、struct...返回的是指针
+- make:用来分配内存，主要用来分配引用类型
+
+### go错误处理机制
+
+go中可以抛出一个panic异常，然后在defer中通过recover捕获这个异常，然后正常处理
+
+````go
+package main
+import(
+	"fmt"
+) 
+
+func test(){
+	defer func(){
+	err := recover()
+	if err != nil{
+		fmt.Println("err=",err)
+	}
+
+}()
+	num1 := 10
+	num2 := 0
+	res := num1 / num2
+	fmt.Println("res=", res)
+}
+
+func main(){
+	test()
+	fmt.Println("下面的代码和逻辑。。。")
+	//err= runtime error: integer divide by zero
+	//下面的代码和逻辑。。。
+}
+````
+
+#### 自定义错误
+
+- error.New("错误说明"),会返回一个error类型的值，表示一个错误
+- panic内置函数，接收一个interface()类型的值（也就是任何值）作为参数。可以接收error类型的变量，输出错误信息，并退出程序
+
+````go
+package main
+import(
+	"fmt"
+	"errors"
+) 
+func readConf(name string) (err error){
+	if name == "config.ini" {
+		//读取
+		return nil
+	}else{
+		//返回一个自定义错误
+		return errors.New("读取文件错误。。")
+	}
+}
+
+func test(){
+	err := readConf("config2.ini")
+	if err != nil{
+		//panic:捕获自定义异常并退出程序
+		panic(err)
+	}
+	fmt.Println("程序正常运行")
+}
+
+func main(){
+	test()
+	fmt.Println("main程序正常运行")
+	// panic: 读取文件错误。。
+
+	// goroutine 1 [running]:
+	// main.test()
+	//         E:/know/笔记/goExec/src/test20221206/test08/main.go:20 +0x49
+	// main.main()
+	//         E:/know/笔记/goExec/src/test20221206/test08/main.go:26 +0x19
+	// exit status 2
+}
+````
+
+# 4. 数组和切片
+ 
+ 数组的定义：
+
+        var 数组名 [数组大小]数据类型
+        var a [5]int
+        赋值 a[0] =1
+            a[1] = 30
+
+````go
+package main
+import(
+	"fmt"
+) 
+func main(){
+	var intArr [3]int64
+	intArr[0] = 10
+	intArr[1] = 20
+	intArr[2] = 30
+	fmt.Println(intArr)
+	fmt.Printf("intArr的地址=%p\tintArr[0]地址%p\tintArr[1]的地址=%p\tintArr[2]的地址=%p",&intArr,
+	&intArr[0],&intArr[1],&intArr[2])	
+	//[10 20 30]
+	// intArr的地址=0xc000012138  
+	// intArr[0]地址0xc000012138  
+	// intArr[1]的地址=0xc000012140
+	// intArr[2]的地址=0xc000012148
+}
+````
+
+**注意**
+
+- 数组的地址可以通过数组名来获取 &intArr
+- 数组的第一个元素的地址就是数组的地址
+- 数组的各个元素的地址间隔是依据数组的类型决定，比如int65->8 int32->4 ...
+
+#### 初始化数组的方式
+
+    var numArr01 [3]int = [3]int{1,2,3}
+
+    var numArr02 = [3]int{5,6,7}
+
+    var numArr03 = [...]int{8,9,10}
+
+    var numArr04 = [...]int{1:800,0:300,2:666}
+
