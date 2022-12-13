@@ -1306,7 +1306,7 @@ func main(){
 - string是不可变的，也就是说不能通过str[0] = 'w'来修改字符串
 - 如果需要修改字符串，可以先将string -> []byte或者 []rune 修改重写为string
 
-### map
+## 5.map
 
 基本语法：
 
@@ -1391,7 +1391,7 @@ func main(){
     }
 ````
 
-## struct
+## 6.struct
 
 基本语法：
 
@@ -1555,7 +1555,7 @@ func main(){
     }
     ```` 
 
-## 接口(interface)
+## 7. 接口(interface)
 
 interface类型可以定义一组方法，但是这些不需要实现，并且interface不能包含任何变量。
 
@@ -1601,7 +1601,7 @@ if err{
     fmt.Println("convert fail")
 }
 ````
-## goroutine(协程)
+## 8. goroutine(协程)
 
 一个go线程上，可以起多个协程。可以这样理解，协程是轻量级的线程。
 
@@ -1630,7 +1630,7 @@ GOMAXPROCS(cpunum string):设置CPU运行个数
 
 go1.8后默认让程序运行在多个核上可以不用设置了。
 
-## channel(管道)
+## 9. channel(管道)
 
 channel本质就是一个数据结构-队列
 
@@ -1747,3 +1747,12 @@ func test(){
     }()
 }
 ````
+
+## 10. 反射
+
+- reflect.TypeOf(变量名)：获取变量的类型，返回reflect.Type类型
+- reflect.ValueOf(变量名)：获取变量的值，返回reflect.Value类型，是一个结构体类型
+- reflect.Value.kind：获取变量的类别，返回的是一个常量
+  - type是类型，kind是类别，type和kind可能是相同的，也可能是不同的
+  - var num int = 10,num的type是int，kind也是int
+  - var stu Student,stu的type是包名+Studnet，kind是struct
