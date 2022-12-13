@@ -292,11 +292,13 @@ func main(){
 
 **值类型**
 
-变量直接存储值，内存通常在栈中分配
+变量直接存储值，内存通常在栈中分配。基本数据类型int系列，float系列，bool，string、数组和结构体struct
 
 **引用类型**
 
 变量存储的是一个地址，这个地址对应的空间才真正存储数据（值），内存通常在堆上分配。当没有任何变量引用这个地址时，该地址对应的数据空间就成为一个垃圾，由GC回收。
+包括指针、slice切片、map、管道chan、interface等
+
 
 #### 标识符
 //TODO
@@ -750,7 +752,7 @@ func main(){
 // hello6
 ````
 
-# 3. 函数（方法）
+# 3. 函数
 
 基本语法：
 
@@ -1002,15 +1004,6 @@ func main(){
 - 当函数执行完毕后，再从defer栈中，按照先入后出的方式出栈，执行
 - defer将语句放入到栈时，也会将相关的值拷贝同时入栈。
 
-### 函数参数的传递方式
-
-**值类型**
-
-基本数据类型int系列，float系列，bool，string、数组和结构体struct
-
-**引用类型**
-
-指针、slice切片、map、管道chan、interface等
 
 #### 变量作用域
 
@@ -1339,5 +1332,418 @@ func main(){
 	a["no2"] = "bbb"
 	a["no1"] = "ccc"
 	fmt.Println(a)//map[no1:ccc no2:bbb]
+}
+````
+
+#### 创建map的方式
+
+````go
+package main
+import(
+	"fmt"
+) 
+func main(){
+	//第一种方式
+	var a map[string]string
+	a = make(map[string]string,10)
+	a["no1"] = "aaa"
+	a["no2"] = "bbb"
+	a["no3"] = "ccc"
+	fmt.Println(a)//map[no1:aaa no2:bbb no3:ccc]
+
+	//第二种方式
+	cities := make(map[string]string)
+	cities["no1"] = "北京"
+	cities["no2"] = "上海"
+	cities["no3"] = "南京"
+	fmt.Println(cities)//map[no1:北京 no2:上海 no3:南京]
+
+	//第三种方式:如果闭合大括号跟最后一个元素在同一行不需要逗号
+	//不在同一行需要加逗号
+	heroes := map[string]string{
+		"hero1" : "宋江",
+		"hero2" : "吴用",
+		"hero3" : "卢俊义",
+	}
+	fmt.Println(heroes)//map[hero1:宋江 hero2:吴用 hero3:卢俊义]
+}
+````
+
+#### map的crud
+
+- 增加和更新：map["key"] = value//如果key还没有就是增加，如果已经存在就是更新
+- delete(map,"key"),delete是一个内置函数，如果key存在就删除该key-value，如果不存在不做操作，也不会报错
+  - 没有删除所有key的方法，可以遍历逐个删除，或者make一个新的。
+- 查找：val,ok = map[key],ok为true表示找到，否则返回false,此时val为类型零值
+
+````go
+    var a map[string]string
+    a = make(map[string]string,10)
+    a["no1"] = "aaa"
+    a["no2"] = "bbb"
+    a["no3"] = "ccc"
+
+    val, ok = a["no1"]
+    if ok {
+        fmt.Println("找到了val="， val)
+    } else {
+        fmt.Println("没有no1这个key")
+    }
+````
+
+## struct
+
+基本语法：
+
+    type 结构体名称 struct{
+        field type
+        field2 type
+    }
+
+举例：
+
+    type Student strcut{
+        Name String
+        Age int
+        Score float32
+    }
+    
+#### 创建结构体变量和访问结构体字段
+
+- 1)直接声明：
+  - var person Person
+
+- 2)var person Person = Person{}
+- 3)var person *Person = new(Person)
+- 4)var person *Person = &Person{}
+
+**注意**
+
+struct的每个字段上，可以写上一个tag，该tag可以通过反射机制获取，常见的使用场景就是序列化和反序列化
+
+````go
+package main
+import(
+	"fmt"
+	"encoding/json"
+) 
+type Monster struct{
+	Name string `json:"name"`
+	Age int `json:"age"`
+	Skill string `json:"skill"`
+}
+func main(){
+	monster := Monster{"牛魔王", 500, "芭蕉扇"}
+
+	//将monster变量序列化为json字符串
+	jsonStr, err := json.Marshal(monster)
+	if err != nil {
+		fmt.Println("json处理错误", err)
+	}
+	fmt.Println("jsonStr", string(jsonStr))
+	//jsonStr {"name":"牛魔王","age":500,"skill":"芭蕉扇"}
+}
+````
+
+### 方法
+
+#### 方法的声明和调用
+
+基本语法：
+
+    type A struct{
+        Num int
+    }
+
+    func (a A) test(参数列表) (返回值列表){
+        ...
+    }
+    
+**说明**
+
+1) func(a A) test(){} 表示A结构体有一个方法名为 test
+
+2) (a A) 体现test方法是和A类型绑定的
+3) 方法调用是值拷贝还是地址拷贝，取决于方法和哪个类型绑定，如果A是值类型就是值拷贝，是指针类型就是地址拷贝
+
+#### 继承
+
+在golang中，如果一个struct嵌套了另一个匿名结构体，那么这个结构体可以直接访问匿名结构体的字段和方法，吃那个人实现了继承特性
+
+基本语法：
+
+    type Goods struct{
+        Name string
+        Price int
+    }
+
+    type Book struct{
+        Goods//这里就是嵌套匿名函数
+        Write string
+    }
+
+**注意**
+
+1) 匿名结构体字段访问可以简化
+
+        func main(){
+            var b B
+            b.A.name = "tom"//可以简化成b.name = "tom"
+            b.A.A.Age = 78//可以简化成b.Age = 78
+        }
+2) 当结构体和匿名结构体有相同的字段或者方法时，编译器采用就近访问原则，如果希望访问匿名结构体的字段和方法，可以通过匿名结构体名来区分
+3) 如果一个struct嵌套了一个有名结构体，这种模式就是组合，如果是组合关系，那么在访问组合的结构体的字段或方法时，必须带上结构体的名字
+4) 嵌套匿名结构体后，也可以再创建结构体变量（实例）时，直接指定各个匿名结构体字段的值
+
+     ````go
+     package main
+    import(
+        "fmt"
+    ) 
+    type Goods struct{
+        Name string
+        Price float64
+    }
+
+    type Brand struct{
+        Name string 
+        Address string 
+    }
+
+    type TV struct{
+        Goods
+        Brand
+    }
+
+    type TV2 struct{
+        *Goods
+        *Brand
+    }
+
+    func main(){
+        tv := TV{Goods{"电视机01",5000.9}, Brand{"海尔","山东"}}
+        
+        tv2 := TV{
+            Goods{
+                Name : "电视机02",
+                Price : 3000.01,
+            },
+            Brand{
+                Name : "夏普",
+                Address : "北京",
+            },
+        }
+
+    fmt.Println("TV", tv)//TV {{电视机01 5000.9} {海尔 山东}}
+    fmt.Println("TV2", tv2)//TV2 {{电视机02 3000.01} {夏普 北京}}
+
+    tv3 := TV2{&Goods{"电视机03", 600.19}, &Brand{"创维","河南"}}
+
+    tv4 := TV2{
+        &Goods{
+            Name : "电视机04",
+            Price : 8000.34,
+        },
+        &Brand{
+            Name : "长虹",
+            Address : "成都",
+        },
+    }
+
+    fmt.Println("TV3", *tv3.Goods,*tv3.Brand)//TV3 {电视机03 600.19} {创维 河南}
+    fmt.Println("TV4", *tv4.Goods,*tv4.Brand)//TV4 {电视机04 8000.34} {长虹 成都}
+    }
+    ```` 
+
+## 接口(interface)
+
+interface类型可以定义一组方法，但是这些不需要实现，并且interface不能包含任何变量。
+
+基本语法：
+
+    type 接口名 interface{
+        method1(参数列表)
+        method2(参数列表)
+    }
+
+**注意**
+
+1) 接口里的所有方法都没有方法体
+2) golang中的接口，不需要显式的实现，只要一个变量，含有接口类型中的所有方法，那么这个变量就实现这个接口。因此，golang中没有implement这样的关键字
+3) 一个接口（比如A接口）可以继承多个别的加快（比如B、C接口），这是如果要实现A接口，也必须将B、C接口的方法也全部实现
+4) interface默认是一个指针（引用类型），如果没有对interface初始化就使用，那么会输出nil
+5) 空接口interface{}没有任何方法，所以任何类型都实现了空接口
+
+        type T interface{
+
+        }
+        func main(){
+            var t T = stu
+            fmt.Println(t)
+
+            var t2 interface{} = stu
+            fmt.Println(t2)
+        } 
+
+#### 类型断言
+
+由于接口是一般类型，不知道具体类型，如果要转成具体类型，就需要使用类型断言
+
+````go
+var t float32
+var x interface{}
+x = t
+//转成带错误检查的float
+y,err := x.(float32)
+if err{
+    fmt.Println("convert success")
+}else{
+    fmt.Println("convert fail")
+}
+````
+## goroutine(协程)
+
+一个go线程上，可以起多个协程。可以这样理解，协程是轻量级的线程。
+
+**特点**
+
+- 有独立的栈空间
+- 共享成都堆空间
+- 调度由用户控制
+- 协程是轻量级的线程
+
+#### 主线程和协程执行流程图
+
+![](https://gitee.com/liujunrull/image-blob/raw/master/202212122058380.png)
+
+#### 快速入门
+
+1) 主线程是一个物理线程，直接作用在CPU上，是重量级的，非常耗费CPU资源。
+2) 协程是从主线程开启的，是轻量级的线程，是逻辑态。对资源消耗相对小
+3) golang的协程机制是重要的特点，可以轻松的开启上万个协程。其他编程语言的并发机制一般是基于线程的，开启过多的线程，资源耗费大，这里就凸显golang在并发上的优势了。
+
+#### 设置golang运行的CPU数
+
+runtime包的NumCPU()：获取当前系统CPU的数量
+
+GOMAXPROCS(cpunum string):设置CPU运行个数
+
+go1.8后默认让程序运行在多个核上可以不用设置了。
+
+## channel(管道)
+
+channel本质就是一个数据结构-队列
+
+数据是先进先出
+
+线程安全，多goroutine访问时，不需要加锁，就是说channel本身就是线程安全的。
+
+channel有类型的，一个string的channel只能存放string类型数据。
+
+**基本语法**
+
+    var 变量名 chan 数据类型
+
+- channel是引用类型
+- channel必须初始化才能写入数据，即make后才能使用
+- 管道是有类型的，intChan只能写入整数int
+
+**基本使用**
+
+初始化：
+
+    var intChan chan int
+    intChan = make(chan int, 10)
+
+向channel写入（存放）数据
+
+    var intChan chan int
+    intChan = make(chan int, 10)
+    num := 99
+    intChan <- 10
+    intChan <- num
+
+从channel取出数据
+
+    num := <- intChan
+    <- intChan//取出数据不接收
+
+当写入数据时，不能超过make的容量。取出数据后可以继续放入，如果全部取完再取会报错dead lock。
+
+#### channel的关闭
+
+使用内置的close函数。关闭channel后不能再写入数据，可以再读取
+
+#### channel的遍历
+支持for-range进行遍历。遍历时，如果channel没有关闭，则会出现deadlock的错误。如果已经关闭，会正常遍历数据，遍历完后，就会退出遍历。
+
+#### channel声明为只读或者只写
+
+````go
+for send(ch chan <- int, exieChan chan struct{}){
+    for i:= 0, i < 10; i++{
+        ch <- i
+    }
+    close(ch)
+    car a struct{}
+    exieChan <- a
+}
+//ch chan <- int,ch <- chan int,设为只写/只读，防止误操作
+func recv(ch <- chan int, exitChan chan struct{}){
+    for{
+        v, ok := <- ch
+        if !ok{
+            break
+        }
+        fmt.Println(v)
+    }
+    var a struct{}
+    exitChan <- a
+}
+
+func maim(){
+    var ch chan int
+    ch = make(chan int, 10)
+    exitChan := make(chan struct{}, 2)
+    go send(ch, exitChan)
+    go recv(ch, exitChan)
+
+    var total = 0
+    for _ =range extChan{
+        total++
+        if total == 2{
+            break
+        }
+    }
+}
+````
+
+#### select
+
+传统的方法在遍历管道时，如果不关闭会阻塞导致deadlock，在实际开发中，可能我们不好确定什么时候该关闭该管道，这时可以用select方式来解决
+
+````go
+select{
+    case v := <-> intChan :
+        fmt.Println("从intChan读取的数据%d\n", v)
+    case v := <- stringChan :
+        fmt.Printf("从stringChan读取的数据%d\n", v)
+    default :
+        fmt.Printf("都取不到", v)
+}
+````
+
+#### defer + revover
+
+如果协程出现painc，我们没有捕获这个panic，就会造成整个程序崩溃，这是我们可以在goroutine中使用recover来捕获panic，进行处理，这样即使这个协程发生问题，但是主线程仍然不受影响，可以继续进行。
+
+````go 
+func test(){
+    defer func(){
+        //捕获test抛出的panic
+        if err := recover(); err != nil {
+            fmt.Println("test()发生错误", err)
+        }
+    }()
 }
 ````

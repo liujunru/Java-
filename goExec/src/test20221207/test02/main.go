@@ -8,5 +8,5 @@ func main(){
 	a["no1"] = "aaa"
 	a["no2"] = "bbb"
 	a["no1"] = "ccc"
-	fmt.Println(a)
+	fmt.Println(a)//map[no1:ccc no2:bbb]
 }
