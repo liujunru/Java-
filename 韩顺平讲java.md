@@ -55,7 +55,7 @@ int s3 = b2 + s1;//对
     }
   }
   Person p = nes Person("xxx",20);
-  ````
+ ````
 
   - 1.加载Person类信息（Person.class)，只会加载一次
   - 2.在堆中分配空间（地址）
@@ -87,3 +87,115 @@ int s3 = b2 + s1;//对
     - 创建子类对象实例，父类也会被加载
     - 使用类的静态成员时（静态属性，静态方法）
   - 普通代码块，在创建对象实例时，会被隐式的调用。被创建一次，就会调用一次。如果只是使用类的静态成员时，普通代码块并不会执行。
+
+- 代码块使用细节：
+
+  - 创建一个子类时，他们的静态代码块、静态属性初始化、普通代码块、普通属性初始化、构造方法的调用顺序如下：
+    1. 父类的静态代码块和静态属性（优先级一样，按定义顺序执行）
+    2. 子类的静态代码块和静态属性（优先级一样，按定义顺序执行）
+    3. 父类的普通代码块和普通属性初始化（优先级一下，按定义顺序执行）
+    4. 父类的构造方法
+    5. 子类的普通代码块和普通属性初始化（优先级一样，按定义顺序执行）
+    6. 子类的构造方法
+
+- 静态代码块只能直接调用静态成员（静态属性和静态方法）。普通代码块可以调用任意成员
+
+- 单例模式
+
+  - 饿汉式
+
+    ```java
+    class SingleTon01{
+    	//将构造器私有化，防止外部直接new
+        private SingleTon01{}
+        //提供一个静态属性类型就是SIngleTon01
+        //先创建好这个SingleTon01对象实例
+        private static SinleTon01 instance = new SingleTon01();
+        
+        //提供一个public静态方法，可以返回instance
+        public static SingleTon01 getInstance(){
+            return instance;
+        }
+    }
+    ```
+
+  - 懒汉式
+
+    ```java
+    class SingleTon02{
+        //构造器私有化
+        private SingleTon02(){}
+        //提供一个静态属性类型是SingleTon02
+        private static SingleTon02 instance;
+        //提供一个public静态方法，可以返回instance
+        public synchronized static SingleTon02 getInstance(){
+            if(instance == null){
+                instance = new SingleTon02();
+            }
+            return  instance;
+        }
+    }
+    ```
+
+    
+
+- final 和static往往搭配使用，效率更高，不会导致类加载，底层编译器做了优化处理。
+
+- 接口中的属性，只能是final的，而且是public satic final修饰符
+
+  - 接口中的属性的访问形式：接口名.属性名
+  - 接口不能继承其他的类，但可以继承多个别的接口
+
+- 类的五大成员：属性、方法、构造器、代码块、内部类
+
+- 内部类
+
+  1. 局部内部类：
+
+     - 可以直接访问外部类的所有成员，包括私有的
+
+     - 不能添加访问修饰符，因为他的地位就是一个局部变量。局部变量是不能使用修饰符的。但是可以用final修饰，因为局部变量也可以使用final
+
+     - 作用域：仅仅在定义他的方法或代码块中。
+
+     - 局部内部类访问外部类的成员：直接访问
+
+     - 外部类访问局部内部类的成员：创建对象再访问。
+
+       ```java
+       package test.test20230102;
+       
+       public class LocalInnerClass {
+           public static void main(String[] args) {
+            LocalInnerClass localInnerClass = new LocalInnerClass();
+             Out02 out02 = localInnerClass.new Out02();
+             out02.m1();
+           }
+           class Out02 {//外部类
+               private int n1 = 100;
+       
+               private void m2() {//私有方法
+                   System.out.println("out02 m2()");
+               }
+       
+               public void m1() {
+                   final class Inner02 {//局部内部类
+       
+                       public void f1() {
+                           System.out.println("n1 = " + n1);
+                           m2();
+                       }
+                   }
+       
+                   //外部类在方法中，可以创建Inner02对象，然后调用方法即可
+                   Inner02 inner02 = new Inner02();
+                   inner02.f1();
+               }
+           }
+       }
+       //n1 = 100
+       //out02 m2()
+       
+       ```
+
+       

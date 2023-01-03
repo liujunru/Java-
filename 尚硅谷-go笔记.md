@@ -137,7 +137,7 @@ func main(){
         - 字符串的两种表示形式：
         1）双引号，会识别转义字符
         2）反引号 ``,以字符串的原生形式输出，包括换行和特殊字符，可以实现防止攻击、输出源代码等效果。
-
+    
         - 用+拼接多个字符串换行时，+需放在上行行末
 
 ###  基本数据类型的默认值
@@ -228,8 +228,9 @@ func main(){
 //Itoa是FormatInt(i, 10) 的简写。
 func Itoa(i int) string
 ````
-  
-##### string转基本数据类型
+
+#### string转基本数据类型
+
 - 使用strconv包的函数
 
 ````go
@@ -307,7 +308,6 @@ func main(){
 **go中保留关键字**
 
 ![](https://gitee.com/liujunrull/image-blob/raw/master/202212031400187.png)
-
 
 **预定义标识符**
 
@@ -403,7 +403,7 @@ func main(){
 0237 =  10 011 111
 
 #### 十六进制转二进制
- 
+
 规则：将十六进制每1位转成对应的一个4位的二进制数即可
 
 0X237 = 10 0011 0111
@@ -527,7 +527,7 @@ case后的表达式可以有多个，可以用","隔开。
         case 表达式3，表达式4,...:
             语句块2
         //这里可以有多个case语句
-
+    
         default:
             语句块
     }
@@ -1102,7 +1102,7 @@ func main(){
 - 休眠
 
         func sleep(d Duration)
-
+        
         案例：time.Sleep(100 * time.Millisecond)//休眠100毫秒
 
 - 获取时间戳：time.Now().Unix()
@@ -1193,7 +1193,7 @@ func main(){
 ````
 
 # 4. 数组和切片
- 
+
  数组的定义：
 
         var 数组名 [数组大小]数据类型
@@ -1231,11 +1231,11 @@ func main(){
 #### 初始化数组的方式
 
     var numArr01 [3]int = [3]int{1,2,3}
-
+    
     var numArr02 = [3]int{5,6,7}
-
+    
     var numArr03 = [...]int{8,9,10}
-
+    
     var numArr04 = [...]int{1:800,0:300,2:666}
 
 #### for-range遍历
@@ -1274,7 +1274,7 @@ func main(){
 基本语法：
 
     var 切片名 []type = make([]type,len,cap)
-
+    
     type:数据类型 len大小 cap:指定切片容量，可选
 
 - 定义一个切片，直接就指定具体数组，使用原理类似make方式
@@ -1283,7 +1283,7 @@ func main(){
 
 - 切片初始化时  var slice = arr   [startIndex:endIndex] (左闭右开)
 - 切片初始化时仍然不能越界。范围在[0-len(arr)]之间，但是可以动态增长
-  - var slice = arr[o:end] 可以简写 var slice = arr[:end]
+  - var slice = arr[0:end] 可以简写 var slice = arr[:end]
   - var slice = arr[start:len(arr)] 可以简写： var slice = arr[start:]
   - var slice = arr[0,len(arr)] 可以简写：var slice = arr[:]
 
@@ -1407,7 +1407,7 @@ func main(){
         Age int
         Score float32
     }
-    
+
 #### 创建结构体变量和访问结构体字段
 
 - 1)直接声明：
@@ -1454,11 +1454,11 @@ func main(){
     type A struct{
         Num int
     }
-
+    
     func (a A) test(参数列表) (返回值列表){
         ...
     }
-    
+
 **说明**
 
 1) func(a A) test(){} 表示A结构体有一个方法名为 test
@@ -1476,7 +1476,7 @@ func main(){
         Name string
         Price int
     }
-
+    
     type Book struct{
         Goods//这里就是嵌套匿名函数
         Write string
@@ -1504,22 +1504,22 @@ func main(){
         Name string
         Price float64
     }
-
+    
     type Brand struct{
         Name string 
         Address string 
     }
-
+    
     type TV struct{
         Goods
         Brand
     }
-
+    
     type TV2 struct{
         *Goods
         *Brand
     }
-
+    
     func main(){
         tv := TV{Goods{"电视机01",5000.9}, Brand{"海尔","山东"}}
         
@@ -1533,12 +1533,12 @@ func main(){
                 Address : "北京",
             },
         }
-
+    
     fmt.Println("TV", tv)//TV {{电视机01 5000.9} {海尔 山东}}
     fmt.Println("TV2", tv2)//TV2 {{电视机02 3000.01} {夏普 北京}}
-
+    
     tv3 := TV2{&Goods{"电视机03", 600.19}, &Brand{"创维","河南"}}
-
+    
     tv4 := TV2{
         &Goods{
             Name : "电视机04",
@@ -1549,7 +1549,7 @@ func main(){
             Address : "成都",
         },
     }
-
+    
     fmt.Println("TV3", *tv3.Goods,*tv3.Brand)//TV3 {电视机03 600.19} {创维 河南}
     fmt.Println("TV4", *tv4.Goods,*tv4.Brand)//TV4 {电视机04 8000.34} {长虹 成都}
     }
@@ -1570,17 +1570,17 @@ interface类型可以定义一组方法，但是这些不需要实现，并且in
 
 1) 接口里的所有方法都没有方法体
 2) golang中的接口，不需要显式的实现，只要一个变量，含有接口类型中的所有方法，那么这个变量就实现这个接口。因此，golang中没有implement这样的关键字
-3) 一个接口（比如A接口）可以继承多个别的加快（比如B、C接口），这是如果要实现A接口，也必须将B、C接口的方法也全部实现
+3) 一个接口（比如A接口）可以继承多个别的接口（比如B、C接口），这是如果要实现A接口，也必须将B、C接口的方法也全部实现
 4) interface默认是一个指针（引用类型），如果没有对interface初始化就使用，那么会输出nil
 5) 空接口interface{}没有任何方法，所以任何类型都实现了空接口
 
         type T interface{
-
+    
         }
         func main(){
             var t T = stu
             fmt.Println(t)
-
+    
             var t2 interface{} = stu
             fmt.Println(t2)
         } 
@@ -1660,13 +1660,13 @@ channel有类型的，一个string的channel只能存放string类型数据。
     var intChan chan int
     intChan = make(chan int, 10)
     num := 99
-    intChan <- 10
-    intChan <- num
+    intChan <-10
+    intChan <-num
 
 从channel取出数据
 
-    num := <- intChan
-    <- intChan//取出数据不接收
+    num := <-intChan
+    <-intChan//取出数据不接收
 
 当写入数据时，不能超过make的容量。取出数据后可以继续放入，如果全部取完再取会报错dead lock。
 
@@ -1682,23 +1682,23 @@ channel有类型的，一个string的channel只能存放string类型数据。
 ````go
 for send(ch chan <- int, exieChan chan struct{}){
     for i:= 0, i < 10; i++{
-        ch <- i
+        ch <-i
     }
     close(ch)
     car a struct{}
-    exieChan <- a
+    exieChan <-a
 }
 //ch chan <- int,ch <- chan int,设为只写/只读，防止误操作
-func recv(ch <- chan int, exitChan chan struct{}){
+func recv(ch <-chan int, exitChan chan struct{}){
     for{
-        v, ok := <- ch
+        v, ok := <-ch
         if !ok{
             break
         }
         fmt.Println(v)
     }
     var a struct{}
-    exitChan <- a
+    exitChan <-a
 }
 
 func maim(){
@@ -1724,9 +1724,9 @@ func maim(){
 
 ````go
 select{
-    case v := <-> intChan :
+    case v := <-intChan :
         fmt.Println("从intChan读取的数据%d\n", v)
-    case v := <- stringChan :
+    case v := <-stringChan :
         fmt.Printf("从stringChan读取的数据%d\n", v)
     default :
         fmt.Printf("都取不到", v)
